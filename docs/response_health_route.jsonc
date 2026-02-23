@@ -32,6 +32,17 @@
         "total_elevation_gain_m": 85,   // 上り坂の合計
         "max_slope_percent": 9.2,       // 最大勾配
         
+        // ルートに沿った標高の推移データ
+        "elevation_profile": [
+            { "distance_m": 0, "elevation_m": 45 },
+            { "distance_m": 500, "elevation_m": 48 },
+            { "distance_m": 1000, "elevation_m": 60 },
+            { "distance_m": 1500, "elevation_m": 55 },
+            { "distance_m": 2000, "elevation_m": 52 },
+            { "distance_m": 2500, "elevation_m": 50 },
+            { "distance_m": 3200, "elevation_m": 47 }
+        ],
+        
         // 騒音推定値
         "noise": {      
         "unit": "dBA",  //  デシベル
