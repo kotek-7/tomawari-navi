@@ -1,0 +1,5 @@
+{
+    "origin": { "lat": 35.0037, "lng": 135.7681 },      // 出発地点の経緯度
+    "destination": { "lat": 34.9858, "lng": 135.7588 }, // 目的地点の経緯度
+    "genre": "sightseeing"
+}
