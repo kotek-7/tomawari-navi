@@ -9,7 +9,7 @@
 
     "route": {
         "polyline": {
-            "format": "latlng_array",
+            "format": "latlng_array",   // 緯度経度配列形式
             "points": [
                 { "lat": 35.0037, "lng": 135.7681 },
                 { "lat": 35.0042, "lng": 135.7702 },
@@ -20,10 +20,10 @@
     },
 
     "summary": {
-        "distance_m": 3200,
-        "duration_s": 2400,
-        "eta_iso": "2026-02-23T15:40:00+09:00",
-        "calories_kcal": 173
+        "distance_m": 3200,     // ルート距離
+        "duration_s": 2400,     // 推定所要時間
+        "eta_iso": "2026-02-23T15:40:00+09:00", // 到着予定時間
+        "calories_kcal": 173    // 推定消費カロリー
     },
 
     "via_spots": [
