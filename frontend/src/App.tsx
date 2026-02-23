@@ -1,30 +1,28 @@
-import { useEffect, useState } from "react";
-import "./App.css";
+import Map from "./components/Map";
+import RouteForm from "./components/RouteForm";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-
-type HealthResponse = {
-  status: string;
-};
-
-function App() {
-  const [health, setHealth] = useState("checking...");
-
-  useEffect(() => {
-    fetch(`${apiBaseUrl}/health`)
-      .then((res) => res.json() as Promise<HealthResponse>)
-      .then((data) => setHealth(data.status))
-      .catch(() => setHealth("ng"));
-  }, []);
-
+export default function App() {
   return (
-    <main style={{ fontFamily: "sans-serif", margin: "2rem", lineHeight: 1.6 }}>
-      <h1>tomawari-navi</h1>
-      <p>Frontend: Vite + React + TypeScript</p>
-      <p>Backend health: {health}</p>
-      <p>API base: {apiBaseUrl}</p>
+    <main style={mainStyle}>
+      <Map />
+      <div style={overlayStyle}>
+        <RouteForm />
+      </div>
     </main>
   );
 }
 
-export default App;
+const mainStyle: React.CSSProperties = {
+  position: "relative",
+  width: "100vw",
+  height: "100vh",
+  overflow: "hidden",
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+};
+
+const overlayStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "24px",
+  left: "24px",
+  zIndex: 10,
+};
