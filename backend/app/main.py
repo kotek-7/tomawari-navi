@@ -9,7 +9,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from app.health_route import lookup_open_elevation, score_with_elevation
+from app.health_route import (
+    fetch_ors_route_points,
+    lookup_open_elevation,
+    score_with_elevation,
+)
 
 app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
 
@@ -250,6 +254,18 @@ def _make_polyline_with_via(req: RouteRequest, vias: list[ViaSpot]) -> list[LatL
     return points
 
 
+def _make_ors_polyline_with_via(req: RouteRequest, vias: list[ViaSpot]) -> list[LatLng] | None:
+    waypoints: list[tuple[float, float]] = [(req.origin.lat, req.origin.lng)]
+    for v in vias:
+        waypoints.append((v.lat, v.lng))
+    waypoints.append((req.destination.lat, req.destination.lng))
+
+    route_points = fetch_ors_route_points(waypoints)
+    if not route_points:
+        return None
+    return [LatLng(lat=lat, lng=lng) for lat, lng in route_points]
+
+
 def _parse_start_time(start_time_iso: str | None) -> datetime:
     if not start_time_iso:
         return datetime.now(JST)
@@ -268,7 +284,7 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
     else:
         vias = _pick_via_spots(req, max_spots=2)
 
-    poly_points = _make_polyline_with_via(req, vias)
+    poly_points = _make_ors_polyline_with_via(req, vias) or _make_polyline_with_via(req, vias)
 
     # 距離は polyline の各区間を足す（MVP）
     dist = 0.0

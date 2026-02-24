@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Literal
+from urllib.request import Request
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -67,3 +68,48 @@ def score_with_elevation(
         scored.append(score)
 
     return scored
+
+
+def fetch_ors_route_points(
+    waypoints: list[tuple[float, float]],
+) -> list[tuple[float, float]] | None:
+    if len(waypoints) < 2:
+        return None
+
+    api_key = os.getenv("OPENROUTESERVICE_API_KEY")
+    if not api_key:
+        return None
+
+    base_url = os.getenv(
+        "OPENROUTESERVICE_DIRECTIONS_URL",
+        "https://api.openrouteservice.org/v2/directions/foot-walking/geojson",
+    )
+
+    # ORS coordinates are [lng, lat]
+    coordinates = [[lng, lat] for lat, lng in waypoints]
+    payload = json.dumps({"coordinates": coordinates}).encode("utf-8")
+    request = Request(
+        base_url,
+        data=payload,
+        headers={
+            "Authorization": api_key,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=8.0) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        features = data.get("features", [])
+        if not features:
+            return None
+        geometry = features[0].get("geometry", {})
+        coords = geometry.get("coordinates", [])
+        if not coords:
+            return None
+        # Convert back to [(lat, lng), ...]
+        return [(c[1], c[0]) for c in coords if isinstance(c, list) and len(c) >= 2]
+    except Exception:
+        return None
+
