@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from app.app_logger import get_logger
 from app.detour_models import LatLng, RouteRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def geocode_sync(place_name: str) -> LatLng:

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import time
 import uuid
@@ -9,6 +8,7 @@ import asyncpg
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.app_logger import get_logger
 from app.detour_models import RouteGeometry, RouteRequest, RouteResponse, Summary
 from app.geo_utils import estimate_calories_kcal, haversine_m, minimum_required_minutes, parse_start_time
 from app.geocoding import resolve_route_points
@@ -16,7 +16,7 @@ from app.ors_client import request_ors_route_sync
 from app.via_selector import pick_via_spots
 
 app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 app.add_middleware(
     CORSMiddleware,

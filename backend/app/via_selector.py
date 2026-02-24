@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import os
-import logging
 import time
 
+from app.app_logger import get_logger
 from app.detour_models import LatLng, RouteRequest, ViaSpot
 from app.geo_utils import haversine_m
 from app.poi_loader import load_kyoto_sights
 
 KYOTO_SIGHTS = load_kyoto_sights()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _target_distance_m_from_minutes(target_minutes: int) -> float:
@@ -30,6 +30,13 @@ def _preselect_candidates(
 ) -> list[ViaSpot]:
     direct_distance = haversine_m(origin, destination)
     target_extra = max(0.0, target_distance_m - direct_distance)
+    preselect_min_gap_m = float(os.getenv("PRESELECT_MIN_SPOT_GAP_M", "250"))
+    bucket_count = int(os.getenv("PRESELECT_PROGRESS_BUCKETS", "10"))
+    max_per_bucket = int(os.getenv("PRESELECT_MAX_PER_BUCKET", "2"))
+    if bucket_count <= 0:
+        bucket_count = 1
+    if max_per_bucket <= 0:
+        max_per_bucket = 1
     weighted: list[tuple[float, ViaSpot]] = []
 
     for spot in all_spots:
@@ -37,11 +44,42 @@ def _preselect_candidates(
         if haversine_m(p, origin) < min_endpoint_gap_m or haversine_m(p, destination) < min_endpoint_gap_m:
             continue
         extra = haversine_m(origin, p) + haversine_m(p, destination) - direct_distance
+        # 直線進行度 t を使い、ルート方向に分散しやすくする
+        denom = max(1e-9, direct_distance)
+        t = haversine_m(origin, p) / denom
+        t = max(0.0, min(1.0, t))
         score = abs(extra - target_extra)
-        weighted.append((score, spot))
+        weighted.append((score, t, spot))
 
     weighted.sort(key=lambda x: x[0])
-    return [spot for _, spot in weighted[:preselect_count]]
+
+    selected: list[ViaSpot] = []
+    bucket_used = [0] * bucket_count
+    for _, t, spot in weighted:
+        bucket = min(bucket_count - 1, int(t * bucket_count))
+        if bucket_used[bucket] >= max_per_bucket:
+            continue
+        p = LatLng(lat=spot.lat, lng=spot.lng)
+        if any(
+            haversine_m(p, LatLng(lat=s.lat, lng=s.lng)) < preselect_min_gap_m
+            for s in selected
+        ):
+            continue
+        selected.append(spot)
+        bucket_used[bucket] += 1
+        if len(selected) >= preselect_count:
+            break
+
+    if len(selected) < preselect_count:
+        used_ids = {id(s) for s in selected}
+        for _, _, spot in weighted:
+            if id(spot) in used_ids:
+                continue
+            selected.append(spot)
+            if len(selected) >= preselect_count:
+                break
+
+    return selected
 
 
 def pick_via_spots(req: RouteRequest, max_spots: int = 10) -> list[ViaSpot]:

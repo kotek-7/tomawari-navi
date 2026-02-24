@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from app.app_logger import get_logger
 from app.detour_models import GeoJSONLineString, RouteRequest, ViaSpot
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _build_ors_coordinates(req: RouteRequest, vias: list[ViaSpot]) -> list[list[float]]:
