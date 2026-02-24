@@ -1,0 +1,17 @@
+# Python venv
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+
+# Node
+**/node_modules
+**/dist
+
+# OS/IDE
+**/.DS_Store
+**/.idea
+**/.vscode
+
+# Git
+**/.git
