@@ -84,6 +84,23 @@ class ViaSpot(BaseModel):
     description: str
 
 
+class NearbySpot(ViaSpot):
+    distance_m: int = Field(ge=0)
+
+
+class NearbySpotsRequest(BaseModel):
+    current: LatLng
+    radius_m: int = Field(default=800, ge=50, le=5000)
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class NearbySpotsResponse(BaseModel):
+    status: Literal["ok"]
+    current: LatLng
+    radius_m: int
+    spots: list[NearbySpot]
+
+
 class Summary(BaseModel):
     distance_m: int
     duration_s: int

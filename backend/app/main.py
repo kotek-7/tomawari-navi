@@ -10,9 +10,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.along_route_spots import select_along_route_spots
 from app.app_logger import get_logger
-from app.detour_models import RouteGeometry, RouteRequest, RouteResponse, Summary
+from app.detour_models import (
+    NearbySpotsRequest,
+    NearbySpotsResponse,
+    RouteGeometry,
+    RouteRequest,
+    RouteResponse,
+    Summary,
+)
 from app.geo_utils import estimate_calories_kcal, haversine_m, minimum_required_minutes, parse_start_time
 from app.geocoding import resolve_route_points
+from app.nearby_spots import select_nearby_spots
 from app.ors_client import request_ors_route_sync
 from app.via_selector import pick_via_spots
 
@@ -58,6 +66,29 @@ async def db_health() -> dict[str, str]:
         return {"status": "ok"}
     finally:
         await conn.close()
+
+
+@app.post("/v1/spots:nearby", response_model=NearbySpotsResponse)
+async def nearby_spots(req: NearbySpotsRequest) -> NearbySpotsResponse:
+    spots = select_nearby_spots(
+        req.current,
+        radius_m=float(req.radius_m),
+        limit=req.limit,
+    )
+    logger.info(
+        "nearby_spots done: current=(%.6f, %.6f) radius_m=%s limit=%s matched=%s",
+        req.current.lat,
+        req.current.lng,
+        req.radius_m,
+        req.limit,
+        len(spots),
+    )
+    return NearbySpotsResponse(
+        status="ok",
+        current=req.current,
+        radius_m=req.radius_m,
+        spots=spots,
+    )
 
 
 @app.post("/v1/routes:detour", response_model=RouteResponse)
