@@ -21,6 +21,7 @@ backend/.venv/
 
 # Node / frontend
 node_modules/
+.pnpm-store/
 frontend/node_modules/
 dist/
 frontend/dist/
