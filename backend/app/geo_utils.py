@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from math import asin, cos, radians, sin, sqrt
+from math import asin, ceil, cos, radians, sin, sqrt
 
 from app.detour_models import LatLng
 
@@ -31,3 +31,10 @@ def parse_start_time(start_time_iso: str | None) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=JST)
     return dt.astimezone(JST)
+
+
+def minimum_required_minutes(distance_m: float, walk_speed_kmph: float) -> int:
+    if walk_speed_kmph <= 0:
+        raise ValueError("walk_speed_kmph must be > 0")
+    m_per_min = walk_speed_kmph * 1000.0 / 60.0
+    return int(ceil(distance_m / m_per_min))

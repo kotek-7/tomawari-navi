@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.detour_models import RouteGeometry, RouteRequest, RouteResponse, Summary
-from app.geo_utils import estimate_calories_kcal, parse_start_time
+from app.geo_utils import estimate_calories_kcal, haversine_m, minimum_required_minutes, parse_start_time
 from app.geocoding import resolve_route_points
 from app.ors_client import request_ors_route_sync
 from app.via_selector import pick_via_spots
@@ -81,6 +81,20 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
     resolved_req = req.model_copy(update={"origin": origin, "destination": destination})
+    # 到達不可能な短時間を早期に弾く（直線距離ベースの理論下限）
+    if req.target_minutes is not None:
+        walk_speed_kmph = float(os.getenv("WALK_SPEED_KMPH", "4.0"))
+        direct_distance_m = haversine_m(origin, destination)
+        min_minutes = minimum_required_minutes(direct_distance_m, walk_speed_kmph)
+        if req.target_minutes < min_minutes:
+            detail = (
+                f"target_minutes={req.target_minutes} is too short for this OD pair. "
+                f"At least {min_minutes} minutes is required at {walk_speed_kmph:.1f} km/h "
+                "(straight-line lower bound)."
+            )
+            logger.warning("detour_route invalid target_minutes: %s", detail)
+            raise HTTPException(status_code=422, detail=detail)
+
     try:
         max_via_spots = int(os.getenv("MAX_VIA_SPOTS", "10"))
         vias = pick_via_spots(resolved_req, max_spots=max_via_spots)
