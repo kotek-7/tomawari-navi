@@ -4,7 +4,7 @@
 // - 環境変数 VITE_API_BASE_URL が設定されていればそれを使用し、未設定の場合は
 //   既定で http://localhost:8000 を使用します（開発時の frontend/vite と backend:8000 の組合せ想定）。
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 // ヘルパー: AbortController を使ったタイムアウト付き fetch
 // - 目的: ネットワーク要求が長時間ブロックされるのを防ぎ、UI を応答可能に保つ。
@@ -66,7 +66,7 @@ export async function detourRoute(body: any, timeoutMs = 15000): Promise<any> {
   }
 
   const res = await fetchWithTimeout(
-    `${API_BASE}/v1/routes:detour`,
+    (new URL("/v1/routes:detour", API_BASE)).toString(),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

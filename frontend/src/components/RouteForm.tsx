@@ -6,9 +6,6 @@ import { detourRoute } from "../api";
 export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
   const [targetType, setTargetType] = useState<"time" | "calories">("time");
   const [priority, setPriority] = useState<"health" | "sightseeing">("health");
-  const [showResult, setShowResult] = useState(false);
-  const [predictedTime, setPredictedTime] = useState<number>(45);
-  const [predictedCalories, setPredictedCalories] = useState<number>(100);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   // ユーザーが入力する地名（文字列）を保持する state
@@ -36,7 +33,7 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
 
       {/* 目標設定の切り替え */}
       <div style={inputGroupStyle}>
-        <label style={labelStyle}>目標設定</label>
+        <label style={labelStyle}>標設定</label>
         <div style={segmentContainerStyle}>
           <button 
             onClick={() => setTargetType("time")}
@@ -84,13 +81,6 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
         </div>
       </div>
 
-      {showResult && (
-        <div style={resultCardStyle}>
-          <div style={resultRowStyle}><span style={resultLabelStyle}>推定時間</span><span style={resultValueStyle}>{predictedTime} 分</span></div>
-          <div style={resultRowStyle}><span style={resultLabelStyle}>消費カロリー</span><span style={resultValueStyle}>{predictedCalories} kcal</span></div>
-        </div>
-      )}
-
       {errorMessage && <div style={{color:'#fff',background:'rgba(0,0,0,0.25)',padding:'8px',borderRadius:8,fontSize:13}}>{errorMessage}</div>}
       <button onClick={async () => {
         try {
@@ -129,8 +119,8 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
           try {
             const resp = await detourRoute(body);
             console.log('[UI] detour response (raw):', resp);
-            // 親コンポーネントへは body（送信内容）を伝える
-            onSubmit?.(body);
+            // 親コンポーネントへは API レスポンスをそのまま渡す
+            onSubmit?.(resp);
           } catch (e) {
             // detourRoute は既に内部で詳細ログを出すためここでは軽く扱う
             console.error('[UI] detour request failed', e);
@@ -160,21 +150,15 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
                 .join(', ');
               userMessage = `バックエンドの入力検証エラー: ${missingFields}。入力候補から選択するか、正確な地名を入力してください。`;
             }
-          } catch (e) {
+          } catch {
             // JSON パースに失敗したら生のメッセージをそのまま表示
             userMessage = rawMsg;
           }
 
           // UI にもエラーの概要を表示（ユーザーにわかりやすい日本語）
-          setErrorMessage(`${userMessage} モックを使用します。`);
+          setErrorMessage(userMessage);
           // 完全なエラーはコンソールに残す（デバッグ用）
           console.error('Full backend error:', err);
-
-          // fallback to MOCK
-          setPredictedTime(MOCK_ROUTE_DATA.summary.total_duration_min);
-          setPredictedCalories(MOCK_ROUTE_DATA.summary.calories_kcal);
-          setShowResult(true);
-          onSubmit?.(MOCK_ROUTE_DATA);
         } finally {
           setLoading(false);
         }
@@ -319,30 +303,4 @@ const submitButtonStyle: React.CSSProperties = {
   marginTop: "8px",
   boxShadow: "0 6px 18px rgba(30,144,255,0.18)",
   width: "100%",
-};
-
-const resultCardStyle: React.CSSProperties = {
-  backgroundColor: "rgba(255,255,255,0.12)",
-  padding: "10px",
-  borderRadius: "10px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-};
-
-const resultRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const resultLabelStyle: React.CSSProperties = {
-  fontSize: "12px",
-  color: "#E6F7FF",
-};
-
-const resultValueStyle: React.CSSProperties = {
-  fontSize: "16px",
-  fontWeight: 700,
-  color: "#fff",
 };
