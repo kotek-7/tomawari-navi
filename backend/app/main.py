@@ -7,7 +7,9 @@ from typing import Literal
 import asyncpg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.health_route import lookup_open_elevation, score_with_elevation
 
 app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
 
@@ -65,10 +67,30 @@ class LatLng(BaseModel):
 class RouteRequest(BaseModel):
     origin: LatLng
     destination: LatLng
-    genre: Literal["sightseeing"] = "sightseeing"
+    genre: Literal["sightseeing", "health"] = "sightseeing"
+    elevation_preference: Literal["low", "normal", "high"] = "normal"
     start_time_iso: str | None = None  # 省略時はサーバ時刻(JST)を使う
+    target_calories_kcal: int | None = Field(default=None, ge=0, le=5000)
     # カロリーの前提は一旦固定にする（必要なら後で入力化）
     weight_kg: float = Field(default=60.0, ge=30.0, le=150.0)
+
+    @field_validator("elevation_preference", mode="before")
+    @classmethod
+    def normalize_elevation_preference(cls, v: str) -> str:
+        if not isinstance(v, str):
+            return v
+        key = v.strip().lower()
+        mapping = {
+            "low": "low",
+            "normal": "normal",
+            "high": "high",
+            "低": "low",
+            "低め": "low",
+            "普通": "normal",
+            "高": "high",
+            "高め": "high",
+        }
+        return mapping.get(key, v)
 
 
 class Polyline(BaseModel):
@@ -89,17 +111,51 @@ class Summary(BaseModel):
     duration_s: int
     eta_iso: str
     calories_kcal: int
+    target_calories_kcal: int | None = None
+    target_calories_achieved: bool | None = None
 
 
 class RouteResponse(BaseModel):
     status: Literal["ok"]
     route_id: str
-    genre: Literal["sightseeing"]
+    genre: Literal["sightseeing", "health"]
     origin: LatLng
     destination: LatLng
     route: dict  # {"polyline": Polyline}
     summary: Summary
     via_spots: list[ViaSpot]
+
+
+KYOTO_SIGHTS = [
+    ViaSpot(
+        lat=35.0037,
+        lng=135.7788,
+        name="八坂神社",
+        type="shrine",
+        description="祇園のシンボル。参道と街歩きが楽しいです。",
+    ),
+    ViaSpot(
+        lat=35.0043,
+        lng=135.7646,
+        name="錦市場",
+        type="market",
+        description="京の台所。食べ歩きが楽しい通りです。",
+    ),
+    ViaSpot(
+        lat=35.0116,
+        lng=135.7709,
+        name="鴨川",
+        type="river",
+        description="川沿いの道が気持ちいい散歩スポットです。",
+    ),
+    ViaSpot(
+        lat=35.0104,
+        lng=135.7539,
+        name="二条城",
+        type="castle",
+        description="歴史を感じる城郭。周辺の落ち着いた道も魅力です。",
+    ),
+]
 
 
 def _haversine_m(a: LatLng, b: LatLng) -> float:
@@ -120,38 +176,10 @@ def _estimate_duration_s(distance_m: float, speed_kmh: float = 4.8) -> int:
 
 
 def _estimate_calories_kcal(distance_m: float, weight_kg: float) -> int:
-    # 雑推定：歩行 0.9 kcal / kg / km を採用（MVP）
+    # 雑推定：歩行 0.9 kcal / kg / km（MVP）
     km = distance_m / 1000.0
     kcal = 0.9 * weight_kg * km
     return int(round(kcal))
-
-
-KYOTO_SIGHTS = [
-    ViaSpot(
-        lat=35.0037, lng=135.7788,
-        name="八坂神社",
-        type="shrine",
-        description="祇園のシンボル。参道と街歩きが楽しいです。"
-    ),
-    ViaSpot(
-        lat=35.0043, lng=135.7646,
-        name="錦市場",
-        type="market",
-        description="京の台所。食べ歩きが楽しい通りです。"
-    ),
-    ViaSpot(
-        lat=35.0116, lng=135.7709,
-        name="鴨川",
-        type="river",
-        description="川沿いの道が気持ちいい散歩スポットです。"
-    ),
-    ViaSpot(
-        lat=35.0104, lng=135.7539,
-        name="二条城",
-        type="castle",
-        description="歴史を感じる城郭。周辺の落ち着いた道も魅力です。"
-    ),
-]
 
 
 def _dist_point_to_segment_rough(p: LatLng, a: LatLng, b: LatLng) -> float:
@@ -160,15 +188,57 @@ def _dist_point_to_segment_rough(p: LatLng, a: LatLng, b: LatLng) -> float:
 
 
 def _pick_via_spots(req: RouteRequest, max_spots: int = 2) -> list[ViaSpot]:
-    # 「出発-目的の線に近い観光スポット」を上位max_spots個（MVP）
+    # 「出発-目的の線に近い観光スポット」を距離だけで選ぶ（MVP）
     a, b = req.origin, req.destination
-    scored = []
+    distance_scored: list[tuple[float, ViaSpot]] = []
+
     for s in KYOTO_SIGHTS:
         p = LatLng(lat=s.lat, lng=s.lng)
         d = _dist_point_to_segment_rough(p, a, b)
-        scored.append((d, s))
-    scored.sort(key=lambda x: x[0])
-    return [s for _, s in scored[:max_spots]]
+        distance_scored.append((d, s))
+
+    distance_scored.sort(key=lambda x: x[0])
+    return [s for _, s in distance_scored[:max_spots]]
+
+
+def _pick_health_via_spots(req: RouteRequest, max_spots: int = 2) -> list[ViaSpot]:
+    # 健康ルート：カロリー目標への近さ + 標高の好みで選ぶ（MVP）
+    a, b = req.origin, req.destination
+    candidates: list[tuple[float, ViaSpot]] = []
+
+    for s in KYOTO_SIGHTS:
+        p = LatLng(lat=s.lat, lng=s.lng)
+        d = _dist_point_to_segment_rough(p, a, b)
+        candidates.append((d, s))
+
+    candidates.sort(key=lambda x: x[0])
+    top = candidates[:8]
+
+    distances: list[float] = []
+    spots: list[ViaSpot] = []
+    coords: list[tuple[float, float]] = []
+    for _, s in top:
+        o = req.origin
+        v = LatLng(lat=s.lat, lng=s.lng)
+        d = req.destination
+        dist = _haversine_m(o, v) + _haversine_m(v, d)
+        distances.append(dist)
+        spots.append(s)
+        coords.append((s.lat, s.lng))
+
+    elevations = lookup_open_elevation(coords)
+    scores = score_with_elevation(distances, elevations, req.elevation_preference)
+
+    if req.target_calories_kcal is not None:
+        target_dist = (req.target_calories_kcal / (0.9 * req.weight_kg)) * 1000.0
+        if target_dist > 0:
+            scores = [
+                s + 0.7 * abs(dist - target_dist) / target_dist
+                for s, dist in zip(scores, distances)
+            ]
+
+    ranked = sorted(zip(scores, spots), key=lambda x: x[0])
+    return [s for _, s in ranked[:max_spots]]
 
 
 def _make_polyline_with_via(req: RouteRequest, vias: list[ViaSpot]) -> list[LatLng]:
@@ -193,7 +263,11 @@ def _parse_start_time(start_time_iso: str | None) -> datetime:
 
 @app.post("/v1/routes:detour", response_model=RouteResponse)
 async def detour_route(req: RouteRequest) -> RouteResponse:
-    vias = _pick_via_spots(req, max_spots=2)
+    if req.genre == "health":
+        vias = _pick_health_via_spots(req, max_spots=2)
+    else:
+        vias = _pick_via_spots(req, max_spots=2)
+
     poly_points = _make_polyline_with_via(req, vias)
 
     # 距離は polyline の各区間を足す（MVP）
@@ -206,11 +280,14 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
     eta_dt = start_dt + timedelta(seconds=duration_s)
 
     calories = _estimate_calories_kcal(dist, req.weight_kg)
+    target_achieved = None
+    if req.target_calories_kcal is not None:
+        target_achieved = calories >= req.target_calories_kcal
 
     return RouteResponse(
         status="ok",
         route_id=f"route_{uuid.uuid4().hex[:12]}",
-        genre="sightseeing",
+        genre=req.genre,
         origin=req.origin,
         destination=req.destination,
         route={"polyline": Polyline(points=poly_points).model_dump()},
@@ -219,6 +296,8 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
             duration_s=duration_s,
             eta_iso=eta_dt.isoformat(),
             calories_kcal=calories,
+            target_calories_kcal=req.target_calories_kcal,
+            target_calories_achieved=target_achieved,
         ),
         via_spots=vias,
     )
