@@ -1,212 +1,181 @@
 import { useState } from "react";
+import type { RouteData } from "../types/route";
+import { MOCK_ROUTE_DATA } from "../testData";
 
-export default function RouteForm() {
-  const [targetType, setTargetType] = useState<"time" | "calories">("time");
-  const [priority, setPriority] = useState<"health" | "sightseeing">("health");
+interface RouteFormProps {
+  onRouteGenerated: (d: RouteData) => void;
+  resultData: RouteData | null;
+}
+
+export default function RouteForm({ onRouteGenerated, resultData }: RouteFormProps) {
+  const [loading, setLoading] = useState(false);
+  const [targetType, setTargetType] = useState<"distance" | "time">("distance");
+  const [targetValue, setTargetValue] = useState("30");
+
+  const handleSearch = () => {
+    setLoading(true);
+    setTimeout(() => {
+      onRouteGenerated(MOCK_ROUTE_DATA);
+      setLoading(false);
+    }, 1200);
+  };
 
   return (
-    <div style={containerStyle}>
-      {/* 経路入力セクション */}
-      <div style={sectionStyle}>
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>出発地</label>
-          <input type="text" placeholder="現在の場所、または駅名" style={inputStyle} />
+    <div style={panelStyle}>
+      {/* 1. 目的地・出発地（左側のインジケーターを白で再現） */}
+      <div style={locationSection}>
+        <div style={lineIndicator}>
+          <div style={circleFull} />
+          <div style={dotLine} />
+          <div style={circleEmpty} />
         </div>
-        
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>目的地</label>
-          <input type="text" placeholder="目的地を入力" style={inputStyle} />
-        </div>
-      </div>
-
-      {/* 目標設定の切り替え */}
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>目標設定</label>
-        <div style={segmentContainerStyle}>
-          <button 
-            onClick={() => setTargetType("time")}
-            style={targetType === "time" ? activeSegmentStyle : inactiveSegmentStyle}
-          >
-            時間
-          </button>
-          <button 
-            onClick={() => setTargetType("calories")}
-            style={targetType === "calories" ? activeSegmentStyle : inactiveSegmentStyle}
-          >
-            カロリー
-          </button>
+        <div style={inputGroup}>
+          <div style={inputField}>
+            <span style={inputLabel}>目的地</span>
+            <input style={textInput} defaultValue="金閣寺" />
+          </div>
+          <div style={{ ...inputField, marginTop: "10px" }}>
+            <span style={inputLabel}>出発地</span>
+            <input style={textInput} defaultValue="現在地" />
+          </div>
         </div>
       </div>
 
-      {/* 数値入力エリア */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: "12px", padding: "8px 0" }}>
-        <input 
-          type="number" 
-          placeholder={targetType === "time" ? "60" : "300"} 
-          style={numberInputStyle} 
-        />
-        <span style={unitStyle}>
-          {targetType === "time" ? "分" : "kcal"}
+      {/* 2. 遠回りルート設定 */}
+      <div style={row}>
+        <span style={rowLabel}>遠回りルート</span>
+        <select style={mainSelect}>
+          <option>健康</option>
+          <option>観光</option>
+        </select>
+      </div>
+
+      {/* 3. 時間/距離設定 */}
+      <div style={row}>
+        <span 
+          style={rowLabel} 
+          onClick={() => setTargetType(targetType === "distance" ? "time" : "distance")}
+        >
+          {targetType === "distance" ? "距離" : "時間"}
         </span>
-      </div>
-
-      {/* 重視する項目の選択（セグメントコントロール形式） */}
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>重視する項目</label>
-        <div style={priorityContainerStyle}>
-          <button 
-            onClick={() => setPriority("health")}
-            style={priority === "health" ? activePriorityStyle : inactivePriorityStyle}
-          >
-            健康 (坂道・運動量)
-          </button>
-          <button 
-            onClick={() => setPriority("sightseeing")}
-            style={priority === "sightseeing" ? activePriorityStyle : inactivePriorityStyle}
-          >
-            観光 (名所・景観)
-          </button>
+        <div style={targetInputWrapper}>
+          <input 
+            type="number" 
+            style={smallNumberInput} 
+            value={targetValue} 
+            onChange={(e) => setTargetValue(e.target.value)} 
+          />
+          <span style={unitText}>{targetType === "distance" ? "km" : "分"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={rowLabel}>カテゴリ</span>
+          <select style={subSelect}>
+            <option>指定なし</option>
+            <option>神社・寺</option>
+            <option>自然</option>
+          </select>
         </div>
       </div>
 
-      <button style={submitButtonStyle}>
-        ルートを生成する
+      {/* 4. 解析結果表示（画像通りの白カード） */}
+      {resultData && !loading && (
+        <div style={resultCard}>
+          <div style={resultRow}>
+            <span style={resTitle}>推定歩数</span>
+            <span style={resValue}>2400 <small style={resUnit}>歩</small></span>
+            <span style={resDiff}>最短距離より <span style={blueText}>+1200</span> 歩</span>
+          </div>
+          <div style={resRowDivider} />
+          <div style={resultRow}>
+            <span style={resTitle}>消費カロリー</span>
+            <span style={resValue}>100 <small style={resUnit}>cal</small></span>
+            <span style={resDiff}>最短距離より <span style={blueText}>+50</span> cal</span>
+          </div>
+        </div>
+      )}
+
+      {/* 5. 検索ボタン（画像通りの青枠・白文字デザイン） */}
+      <button 
+        style={{ ...searchButton, opacity: loading ? 0.7 : 1 }} 
+        onClick={handleSearch}
+        disabled={loading}
+      >
+        {loading ? "解析中..." : "検索"}
       </button>
     </div>
   );
 }
 
-// --- Styles (Fast Refreshエラー防止のためexportしない) ---
+// --- 画像の配色を完全再現 ---
 
-const containerStyle: React.CSSProperties = {
-  width: "340px",
-  backgroundColor: "rgba(255, 255, 255, 0.9)",
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-  padding: "32px 24px",
-  borderRadius: "24px",
-  boxShadow: "0 20px 40px rgba(0,0,0,0.06)",
-  display: "flex",
-  flexDirection: "column",
-  gap: "24px",
-  border: "1px solid rgba(255, 255, 255, 0.4)",
-};
-
-const sectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "16px",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "11px",
-  fontWeight: "700",
-  color: "#888",
-  letterSpacing: "0.05em",
-  marginBottom: "8px",
-};
-
-const inputGroupStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-};
-
-const inputStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  borderBottom: "1px solid #eee",
-  padding: "8px 0",
-  fontSize: "15px",
-  color: "#1d1d1f",
-  outline: "none",
-};
-
-const numberInputStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  fontSize: "32px",
-  fontWeight: "700",
-  width: "120px",
-  outline: "none",
-  color: "#1d1d1f",
-};
-
-const unitStyle: React.CSSProperties = {
-  fontSize: "14px",
-  fontWeight: "600",
-  color: "#888",
-};
-
-const segmentContainerStyle: React.CSSProperties = {
-  display: "flex",
-  backgroundColor: "#f2f2f7",
-  padding: "4px",
-  borderRadius: "12px",
-};
-
-const activeSegmentStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "10px",
-  fontSize: "13px",
-  fontWeight: "600",
-  borderRadius: "8px",
-  border: "none",
-  backgroundColor: "#fff",
-  color: "#000",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  cursor: "pointer",
-};
-
-const inactiveSegmentStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "10px",
-  fontSize: "13px",
-  fontWeight: "500",
-  borderRadius: "8px",
-  border: "none",
-  backgroundColor: "transparent",
-  color: "#8e8e93",
-  cursor: "pointer",
-};
-
-const priorityContainerStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-};
-
-const activePriorityStyle: React.CSSProperties = {
-  padding: "12px",
-  fontSize: "13px",
-  fontWeight: "600",
-  borderRadius: "12px",
-  border: "2px solid #000",
-  backgroundColor: "#000",
-  color: "#fff",
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const inactivePriorityStyle: React.CSSProperties = {
-  padding: "12px",
-  fontSize: "13px",
-  fontWeight: "500",
-  borderRadius: "12px",
-  border: "2px solid #eee",
-  backgroundColor: "#fff",
-  color: "#444",
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const submitButtonStyle: React.CSSProperties = {
-  backgroundColor: "#007AFF",
-  color: "#fff",
-  border: "none",
-  padding: "18px",
+const panelStyle: React.CSSProperties = {
+  width: "360px",
+  backgroundColor: "#3182F9", // 画像のベースカラー
+  padding: "20px",
   borderRadius: "16px",
-  fontWeight: "700",
-  fontSize: "15px",
-  cursor: "pointer",
-  marginTop: "8px",
+  color: "white",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+  display: "flex",
+  flexDirection: "column",
+  gap: "18px",
+  pointerEvents: "auto",
+};
+
+const locationSection: React.CSSProperties = { display: "flex", gap: "12px", alignItems: "center" };
+
+const lineIndicator: React.CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", width: "16px"
+};
+const circleFull: React.CSSProperties = { width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "white" };
+const circleEmpty: React.CSSProperties = { width: "10px", height: "10px", borderRadius: "50%", border: "2px solid white" };
+const dotLine: React.CSSProperties = { width: "2px", height: "24px", borderLeft: "2px dotted white" };
+
+const inputGroup: React.CSSProperties = { flex: 1 };
+const inputField: React.CSSProperties = { 
+  backgroundColor: "rgba(255, 255, 255, 0.25)", // 入力欄の透過白
+  padding: "10px 14px", 
+  borderRadius: "8px", 
+  display: "flex", 
+  alignItems: "center" 
+};
+const inputLabel: React.CSSProperties = { fontSize: "11px", fontWeight: "bold", color: "rgba(255,255,255,0.8)", width: "50px" };
+const textInput: React.CSSProperties = { background: "none", border: "none", outline: "none", fontWeight: "bold", fontSize: "15px", color: "white", flex: 1 };
+
+const row: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center" };
+const rowLabel: React.CSSProperties = { fontSize: "12px", fontWeight: "bold", color: "white" };
+
+const mainSelect: React.CSSProperties = { 
+  width: "180px", padding: "8px", borderRadius: "8px", border: "1px solid white", 
+  backgroundColor: "rgba(255,255,255,0.1)", color: "white", fontWeight: "bold", outline: "none" 
+};
+
+const subSelect: React.CSSProperties = { 
+  width: "110px", padding: "6px", borderRadius: "8px", border: "1px solid white", 
+  backgroundColor: "rgba(255,255,255,0.1)", color: "white", fontSize: "11px", fontWeight: "bold", outline: "none"
+};
+
+const targetInputWrapper: React.CSSProperties = { display: "flex", alignItems: "center", gap: "6px" };
+const smallNumberInput: React.CSSProperties = { 
+  width: "55px", padding: "6px", borderRadius: "8px", border: "none", textAlign: "center", 
+  fontWeight: "bold", backgroundColor: "rgba(255,255,255,0.3)", color: "white" 
+};
+const unitText: React.CSSProperties = { fontSize: "12px", fontWeight: "bold" };
+
+const resultCard: React.CSSProperties = { 
+  backgroundColor: "white", // 結果エリアの白背景
+  padding: "16px", 
+  borderRadius: "12px", 
+  color: "#3182F9" // カード内テキストの青
+};
+const resultRow: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "baseline" };
+const resTitle: React.CSSProperties = { fontSize: "11px", fontWeight: "bold", width: "80px" };
+const resValue: React.CSSProperties = { fontSize: "20px", fontWeight: "900", textAlign: "right", flex: 1, marginRight: "10px" };
+const resUnit: React.CSSProperties = { fontSize: "11px", fontWeight: "bold" };
+const resDiff: React.CSSProperties = { fontSize: "9px", color: "#60A5FA", width: "95px", textAlign: "right", fontWeight: "bold" };
+const blueText: React.CSSProperties = { color: "#3182F9" };
+const resRowDivider: React.CSSProperties = { height: "1px", backgroundColor: "#f0f0f0", margin: "10px 0" };
+
+const searchButton: React.CSSProperties = {
+  width: "100%", padding: "14px", borderRadius: "100px", border: "2px solid white",
+  backgroundColor: "transparent", color: "white", fontWeight: "bold", fontSize: "16px", cursor: "pointer"
 };
