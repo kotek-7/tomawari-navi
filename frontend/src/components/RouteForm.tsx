@@ -8,7 +8,14 @@ function clamp(n: number, min: number, max: number): number {
 
 type PanelMode = "collapsed" | "basic" | "full";
 
-export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) => void }) {
+type RouteFormProps = {
+  onSubmit?: (data: RouteData) => void;
+  onSearchStart?: () => void;
+  onSearchSuccess?: () => void;
+  onSearchError?: () => void;
+};
+
+export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, onSearchError }: RouteFormProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -58,6 +65,7 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
 
       setLoading(true);
       setErrorMessage("");
+      onSearchStart?.();
 
       const body = {
         origin_text: origin,
@@ -74,11 +82,13 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
 
       setLastRoute(resp);
       onSubmit?.(resp);
+      onSearchSuccess?.();
       setPanelMode("collapsed");
     } catch (err) {
       console.error("route request failed", err);
       const rawMsg = err instanceof Error ? err.message : String(err);
       setErrorMessage(rawMsg);
+      onSearchError?.();
     } finally {
       setLoading(false);
     }
@@ -99,7 +109,7 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
               onFocus={() => setPanelMode("basic")}
               type="text"
               placeholder="目的地を入力"
-              className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 pr-28 text-base text-gray-800 shadow-[0_4px_14px_rgba(0,0,0,0.16)] outline-none placeholder:text-black/30"
+              className="w-full rounded-xl border-4 border-sky-500/90 bg-white px-3 py-2 pr-28 text-base text-gray-800 shadow-[0_4px_14px_rgba(0,0,0,0.16)] outline-none placeholder:text-black/30"
             />
             <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1 text-xs font-semibold text-black/35">
               <span>遠回り検索！</span>

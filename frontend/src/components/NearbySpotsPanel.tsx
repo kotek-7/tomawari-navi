@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nearbySpots } from "../api/nearbySpots";
-import type { NearbySpot } from "../types/nearby";
+import type { LatLng, NearbySpot } from "../types/nearby";
 
 type Props = {
+  center: LatLng;
   initialRadiusM?: number;
   initialLimit?: number;
   pollingIntervalMs?: number;
@@ -16,6 +17,7 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 export default function NearbySpotsPanel({
+  center,
   initialRadiusM = 800,
   initialLimit = 10,
   pollingIntervalMs = 30000,
@@ -36,90 +38,74 @@ export default function NearbySpotsPanel({
     };
   }, [initialLimit, initialRadiusM]);
 
-  const requestCurrentLocationAndSearch = useCallback(() => {
-    if (!navigator.geolocation || inFlightRef.current) {
+  const requestNearbyFromCenter = useCallback(() => {
+    if (inFlightRef.current) {
       return;
     }
 
     inFlightRef.current = true;
     setLoading(true);
+    setErrorMessage("");
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const current = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          const response = await nearbySpots({
-            current,
-            radius_m: searchParams.radius,
-            limit: searchParams.limit,
-          });
-          setSpots(response.spots);
-          setErrorMessage("");
-          onSpotsLoaded?.(response.spots);
-        } catch (e) {
-          setErrorMessage(e instanceof Error ? e.message : String(e));
-        } finally {
-          inFlightRef.current = false;
-          setLoading(false);
-        }
-      },
-      (err) => {
+    nearbySpots({
+      current: center,
+      radius_m: searchParams.radius,
+      limit: searchParams.limit,
+    })
+      .then((response) => {
+        setSpots(response.spots);
+        onSpotsLoaded?.(response.spots);
+      })
+      .catch((e) => {
+        setErrorMessage(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
         inFlightRef.current = false;
         setLoading(false);
-        if (err.code === err.PERMISSION_DENIED) {
-          setErrorMessage("位置情報の権限が未許可です。ブラウザ設定から許可してください。");
-        } else {
-          setErrorMessage("現在地を取得できませんでした。");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 10000,
-      },
-    );
-  }, [onSpotsLoaded, searchParams.limit, searchParams.radius]);
+      });
+  }, [center, onSpotsLoaded, searchParams.limit, searchParams.radius]);
 
   useEffect(() => {
-    requestCurrentLocationAndSearch();
-    const id = window.setInterval(requestCurrentLocationAndSearch, pollingIntervalMs);
+    requestNearbyFromCenter();
+    const id = window.setInterval(requestNearbyFromCenter, pollingIntervalMs);
     return () => window.clearInterval(id);
-  }, [pollingIntervalMs, requestCurrentLocationAndSearch]);
+  }, [center, pollingIntervalMs, requestNearbyFromCenter]);
+
+  const collapsedOffset = "calc(100% - 46px)";
 
   return (
-    <section style={{ ...sheetStyle, transform: expanded ? "translateY(0%)" : "translateY(72%)" }}>
+    <section style={{ ...sheetStyle, transform: expanded ? "translateY(0%)" : `translateY(${collapsedOffset})` }}>
       <button type="button" onClick={() => setExpanded((v) => !v)} style={handleButtonStyle}>
         <span style={handleBarStyle} />
-        <h3 style={titleStyle}>{title}</h3>
+        <h3 style={titleStyle}>{expanded ? "その近くの寄り道スポット" : title}</h3>
         <span style={chevronStyle}>{expanded ? "▼" : "▲"}</span>
       </button>
 
-      <div style={contentStyle}>
-        {errorMessage && <div style={errorStyle}>{errorMessage}</div>}
-        {loading && <div style={loadingStyle}>周辺スポットを検索中...</div>}
+      {expanded && (
+        <div style={contentStyle}>
+          {errorMessage && <div style={errorStyle}>{errorMessage}</div>}
+          {loading && <div style={loadingStyle}>周辺スポットを検索中...</div>}
 
-        <div style={listStyle}>
-          {spots.length === 0 ? (
-            <div style={emptyStyle}>周辺スポットがまだ見つかっていません</div>
-          ) : (
-            spots.map((spot) => (
-              <button
-                type="button"
-                key={`${spot.name}-${spot.lat}-${spot.lng}`}
-                onClick={() => onSpotClick?.(spot)}
-                style={spotItemStyle}
-              >
-                <strong>{spot.name}</strong>
-                <span style={distanceStyle}>{spot.distance_m} m</span>
-                <p style={descriptionStyle}>{spot.description}</p>
-              </button>
-            ))
-          )}
+          <div style={listStyle}>
+            {spots.length === 0 ? (
+              <div style={emptyStyle}>周辺スポットがまだ見つかっていません</div>
+            ) : (
+              spots.map((spot) => (
+                <button
+                  type="button"
+                  key={`${spot.name}-${spot.lat}-${spot.lng}`}
+                  onClick={() => onSpotClick?.(spot)}
+                  style={spotItemStyle}
+                >
+                  <strong>{spot.name}</strong>
+                  <span style={distanceStyle}>{spot.distance_m} m</span>
+                  <p style={descriptionStyle}>{spot.description}</p>
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

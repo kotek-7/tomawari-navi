@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from "react-leaflet";
+import { useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, Polyline, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import type { LatLng } from "../types/nearby";
 import type { RouteData } from "../types/route";
 
 function RouteAdjuster({ bounds }: { bounds: [number, number][] }) {
@@ -12,6 +13,31 @@ function RouteAdjuster({ bounds }: { bounds: [number, number][] }) {
       map.fitBounds(bounds, { padding: [50, 50], animate: true });
     }
   }, [bounds, map]);
+  return null;
+}
+
+function MapCenterReporter({ onCenterChange }: { onCenterChange?: (center: LatLng) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!onCenterChange) return;
+    const center = map.getCenter();
+    onCenterChange({ lat: center.lat, lng: center.lng });
+  }, [map, onCenterChange]);
+
+  useMapEvents({
+    moveend() {
+      if (!onCenterChange) return;
+      const center = map.getCenter();
+      onCenterChange({ lat: center.lat, lng: center.lng });
+    },
+    zoomend() {
+      if (!onCenterChange) return;
+      const center = map.getCenter();
+      onCenterChange({ lat: center.lat, lng: center.lng });
+    },
+  });
+
   return null;
 }
 
@@ -28,9 +54,16 @@ function makeLabeledIcon(label?: string, color = "#4CD964", size = 18) {
   });
 }
 
-export default function Map({ routeData }: { routeData: RouteData | null }) {
-  const routePath: [number, number][] =
-    routeData?.route.geojson.coordinates.map(([lng, lat]) => [lat, lng]) ?? [];
+type MapProps = {
+  routeData: RouteData | null;
+  onCenterChange?: (center: LatLng) => void;
+};
+
+export default function Map({ routeData, onCenterChange }: MapProps) {
+  const routePath = useMemo<[number, number][]>(() => {
+    if (!routeData) return [];
+    return routeData.route.geojson.coordinates.map(([lng, lat]) => [lat, lng]);
+  }, [routeData]);
 
   return (
     <MapContainer center={[35.0394, 135.7292]} zoom={14} style={{ width: "100%", height: "100%" }}>
@@ -38,6 +71,7 @@ export default function Map({ routeData }: { routeData: RouteData | null }) {
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <MapCenterReporter onCenterChange={onCenterChange} />
 
       {routePath.length > 0 && (
         <>
