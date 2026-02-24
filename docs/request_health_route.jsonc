@@ -1,5 +1,15 @@
 {
-    "origin": { "lat": 35.0037, "lng": 135.7681 },
-    "destination": { "lat": 34.9858, "lng": 135.7588 },
-    "genre": "health"
+  "origin": {
+    "lat": 35.0037,
+    "lng": 135.7681,
+  },
+  "destination": {
+    "lat": 34.9858,
+    "lng": 135.7588,
+  },
+  "genre": "health",
+  "elevation_preference": "normal",
+  "start_time_iso": "2026-02-24T19:30:00+09:00",
+  "target_calories_kcal": 250,
+  "weight_kg": 60,
 }
