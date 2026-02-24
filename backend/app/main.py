@@ -1,14 +1,18 @@
+﻿import asyncio
+import json
 import os
 import uuid
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import datetime, timedelta, timezone
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Literal
-import xml.etree.ElementTree as ET
-import zipfile
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import asyncpg
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from app.ranking import router as ranking_router
@@ -18,11 +22,12 @@ app.include_router(ranking_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # ReactのURL
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ----------------------------
 # DB
@@ -71,8 +76,8 @@ class RouteRequest(BaseModel):
     origin: LatLng
     destination: LatLng
     genre: Literal["sightseeing"] = "sightseeing"
-    start_time_iso: str | None = None  # 省略時はサーバ時刻(JST)を使う
-    # カロリーの前提は一旦固定にする（必要なら後で入力化）
+    start_time_iso: str | None = None
+    target_minutes: int | None = Field(default=None, ge=10, le=240)
     weight_kg: float = Field(default=60.0, ge=30.0, le=150.0)
 
 
@@ -102,13 +107,12 @@ class RouteResponse(BaseModel):
     genre: Literal["sightseeing"]
     origin: LatLng
     destination: LatLng
-    route: dict  # {"polyline": Polyline}
+    route: dict
     summary: Summary
     via_spots: list[ViaSpot]
 
 
 def _haversine_m(a: LatLng, b: LatLng) -> float:
-    # 地球半径
     r = 6371000.0
     lat1, lon1 = radians(a.lat), radians(a.lng)
     lat2, lon2 = radians(b.lat), radians(b.lng)
@@ -118,14 +122,7 @@ def _haversine_m(a: LatLng, b: LatLng) -> float:
     return 2 * r * asin(sqrt(h))
 
 
-def _estimate_duration_s(distance_m: float, speed_kmh: float = 4.8) -> int:
-    # 徒歩速度の雑推定（MVP）
-    m_per_s = (speed_kmh * 1000) / 3600
-    return int(round(distance_m / m_per_s))
-
-
 def _estimate_calories_kcal(distance_m: float, weight_kg: float) -> int:
-    # 雑推定：歩行 0.9 kcal / kg / km を採用（MVP）
     km = distance_m / 1000.0
     kcal = 0.9 * weight_kg * km
     return int(round(kcal))
@@ -133,28 +130,32 @@ def _estimate_calories_kcal(distance_m: float, weight_kg: float) -> int:
 
 DEFAULT_KYOTO_SIGHTS = [
     ViaSpot(
-        lat=35.0037, lng=135.7788,
+        lat=35.0037,
+        lng=135.7788,
         name="八坂神社",
         type="shrine",
-        description="祇園のシンボル。参道と街歩きが楽しいです。"
+        description="祇園のシンボル。参道と街歩きが楽しいです。",
     ),
     ViaSpot(
-        lat=35.0043, lng=135.7646,
+        lat=35.0043,
+        lng=135.7646,
         name="錦市場",
         type="market",
-        description="京の台所。食べ歩きが楽しい通りです。"
+        description="京の台所。食べ歩きが楽しい通りです。",
     ),
     ViaSpot(
-        lat=35.0116, lng=135.7709,
+        lat=35.0116,
+        lng=135.7709,
         name="鴨川",
         type="river",
-        description="川沿いの道が気持ちいい散歩スポットです。"
+        description="川沿いの道が気持ちいい散歩スポットです。",
     ),
     ViaSpot(
-        lat=35.0104, lng=135.7539,
+        lat=35.0104,
+        lng=135.7539,
         name="二条城",
         type="castle",
-        description="歴史を感じる城郭。周辺の落ち着いた道も魅力です。"
+        description="歴史を感じる城郭。周辺の落ち着いた道も魅力です。",
     ),
 ]
 
@@ -259,7 +260,6 @@ def _read_xlsx_rows(xlsx_path: Path) -> list[dict[str, str]]:
 
 
 def _load_kyoto_sights_from_xlsx() -> list[ViaSpot]:
-    repo_root = Path(__file__).resolve().parents[2]
     xlsx_path = Path(os.getenv("KYOTO_SIGHTS_XLSX_PATH", "/app/data/kyoto_kankouchi.xlsx"))
     if not xlsx_path.exists():
         return DEFAULT_KYOTO_SIGHTS
@@ -308,8 +308,6 @@ KYOTO_SIGHTS = _load_kyoto_sights_from_xlsx()
 
 
 def _dist_point_to_segment_rough(p: LatLng, a: LatLng, b: LatLng) -> float:
-    # 線分ABに対する点Pの最短距離（局所平面近似, meters）
-    # 京都市内スケールなら実用上十分な精度になる。
     r = 6371000.0
     ref_lat = radians((a.lat + b.lat + p.lat) / 3.0)
 
@@ -345,7 +343,6 @@ def _dist_point_to_segment_rough(p: LatLng, a: LatLng, b: LatLng) -> float:
 
 
 def _decide_via_count_by_distance(distance_m: float, max_spots: int = 5) -> int:
-    # OD距離に応じて経由地数を増やす（最大5）
     if distance_m < 1500:
         return 0
     if distance_m < 3000:
@@ -359,19 +356,34 @@ def _decide_via_count_by_distance(distance_m: float, max_spots: int = 5) -> int:
     return min(5, max_spots)
 
 
+
+def _decide_via_count_by_target_minutes(target_minutes: int | None, max_spots: int = 5) -> int:
+    if target_minutes is None:
+        return max_spots
+    if target_minutes < 30:
+        return 0
+    if target_minutes < 45:
+        return min(1, max_spots)
+    if target_minutes < 60:
+        return min(2, max_spots)
+    if target_minutes < 90:
+        return min(3, max_spots)
+    if target_minutes < 120:
+        return min(4, max_spots)
+    return min(5, max_spots)
 def _pick_via_spots(req: RouteRequest, max_spots: int = 5) -> list[ViaSpot]:
-    # 「出発-目的の線に近い観光スポット」を優先しつつ、
-    # 近すぎるエリアの候補を除外して多様化する。
     a, b = req.origin, req.destination
     base_distance_m = _haversine_m(a, b)
-    target_count = _decide_via_count_by_distance(base_distance_m, max_spots=max_spots)
+    distance_based_count = _decide_via_count_by_distance(base_distance_m, max_spots=max_spots)
+    minutes_based_count = _decide_via_count_by_target_minutes(req.target_minutes, max_spots=max_spots)
+    target_count = min(distance_based_count, minutes_based_count)
     if target_count <= 0:
         return []
 
     min_spot_gap_m = float(os.getenv("MIN_VIA_SPOT_GAP_M", "300"))
     min_endpoint_gap_m = float(os.getenv("MIN_VIA_ENDPOINT_GAP_M", "150"))
 
-    scored = []
+    scored: list[tuple[float, ViaSpot]] = []
     for s in KYOTO_SIGHTS:
         p = LatLng(lat=s.lat, lng=s.lng)
         d = _dist_point_to_segment_rough(p, a, b)
@@ -382,12 +394,8 @@ def _pick_via_spots(req: RouteRequest, max_spots: int = 5) -> list[ViaSpot]:
     selected_points: list[LatLng] = []
     for _, spot in scored:
         p = LatLng(lat=spot.lat, lng=spot.lng)
-
-        # 出発地/目的地の直近は除外
         if _haversine_m(p, a) < min_endpoint_gap_m or _haversine_m(p, b) < min_endpoint_gap_m:
             continue
-
-        # 既に選んだスポットと近すぎる候補は除外
         if any(_haversine_m(p, sp) < min_spot_gap_m for sp in selected_points):
             continue
 
@@ -399,40 +407,82 @@ def _pick_via_spots(req: RouteRequest, max_spots: int = 5) -> list[ViaSpot]:
     return selected
 
 
-def _make_polyline_with_via(req: RouteRequest, vias: list[ViaSpot]) -> list[LatLng]:
-    # polylineは「origin -> via1 -> via2 -> destination」の順で点を置く（MVP）
-    points = [req.origin]
-    for v in vias:
-        points.append(LatLng(lat=v.lat, lng=v.lng))
-    points.append(req.destination)
-    return points
-
-
 def _parse_start_time(start_time_iso: str | None) -> datetime:
     if not start_time_iso:
         return datetime.now(JST)
-    # ISO文字列を受け取り（+09:00付き推奨）
     dt = datetime.fromisoformat(start_time_iso)
     if dt.tzinfo is None:
-        # tzがなければJST扱い
         dt = dt.replace(tzinfo=JST)
     return dt.astimezone(JST)
+
+
+def _build_ors_coordinates(req: RouteRequest, vias: list[ViaSpot]) -> list[list[float]]:
+    coordinates: list[list[float]] = [[req.origin.lng, req.origin.lat]]
+    for v in vias:
+        coordinates.append([v.lng, v.lat])
+    coordinates.append([req.destination.lng, req.destination.lat])
+    return coordinates
+
+
+def _request_ors_route_sync(req: RouteRequest, vias: list[ViaSpot]) -> tuple[list[LatLng], float, int]:
+    api_key = os.getenv("OPENROUTESERVICE_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("OPENROUTESERVICE_API_KEY is not set")
+
+    url = os.getenv(
+        "OPENROUTESERVICE_DIRECTIONS_URL",
+        "https://api.openrouteservice.org/v2/directions/foot-walking/geojson",
+    )
+    payload = {
+        "coordinates": _build_ors_coordinates(req, vias),
+        "instructions": False,
+        "elevation": False,
+    }
+
+    request = Request(
+        url=url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": api_key,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=20) as response:
+            raw = response.read().decode("utf-8")
+    except HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"openrouteservice HTTP {e.code}: {detail[:200]}") from e
+    except URLError as e:
+        raise RuntimeError(f"openrouteservice connection error: {e.reason}") from e
+
+    try:
+        data = json.loads(raw)
+        feature = data["features"][0]
+        geometry = feature["geometry"]["coordinates"]
+        summary = feature["properties"]["summary"]
+        distance_m = float(summary["distance"])
+        duration_s = int(round(float(summary["duration"])))
+    except (KeyError, IndexError, TypeError, ValueError) as e:
+        raise RuntimeError("openrouteservice response format is invalid") from e
+
+    points = [LatLng(lat=float(lat), lng=float(lng)) for lng, lat in geometry]
+    return points, distance_m, duration_s
 
 
 @app.post("/v1/routes:detour", response_model=RouteResponse)
 async def detour_route(req: RouteRequest) -> RouteResponse:
     vias = _pick_via_spots(req, max_spots=5)
-    poly_points = _make_polyline_with_via(req, vias)
 
-    # 距離は polyline の各区間を足す（MVP）
-    dist = 0.0
-    for i in range(len(poly_points) - 1):
-        dist += _haversine_m(poly_points[i], poly_points[i + 1])
+    try:
+        poly_points, dist, duration_s = await asyncio.to_thread(_request_ors_route_sync, req, vias)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
-    duration_s = _estimate_duration_s(dist)
     start_dt = _parse_start_time(req.start_time_iso)
     eta_dt = start_dt + timedelta(seconds=duration_s)
-
     calories = _estimate_calories_kcal(dist, req.weight_kg)
 
     return RouteResponse(
@@ -452,40 +502,5 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
     )
 
 
-'''
-import os
-
-import asyncpg
-from fastapi import FastAPI
-
-app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
 
 
-def _db_dsn() -> str:
-    host = os.getenv("DB_HOST", "db")
-    port = int(os.getenv("DB_PORT", "5432"))
-    user = os.getenv("POSTGRES_USER", "tomawari")
-    password = os.getenv("POSTGRES_PASSWORD", "tomawari")
-    database = os.getenv("POSTGRES_DB", "tomawari")
-    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
-
-
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "tomawari backend is running"}
-
-
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-@app.get("/db-health")
-async def db_health() -> dict[str, str]:
-    conn = await asyncpg.connect(_db_dsn())
-    try:
-        await conn.fetchval("SELECT 1")
-        return {"status": "ok"}
-    finally:
-        await conn.close()
-'''
