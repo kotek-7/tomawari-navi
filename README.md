@@ -112,6 +112,12 @@ docker compose up --build
 - 依存定義: `backend/pyproject.toml`
 - コンテナ内起動: `uv sync && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app --reload-exclude '.venv/*' --reload-exclude 'data/*'`
 
+## Railway へのデプロイ
+- 手順: `docs/railway-deploy.md`
+- Railway 用 Dockerfile:
+  - backend: `backend/Dockerfile.railway`
+  - frontend: `frontend/Dockerfile.railway`
+
 ## 停止
 ```bash
 docker compose down
