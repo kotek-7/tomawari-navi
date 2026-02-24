@@ -1,12 +1,16 @@
 import Map from "./components/Map";
 import RouteForm from "./components/RouteForm";
+import type { RouteData } from "./types/route";
+import { useState } from "react";
 
 export default function App() {
+  const [routeData, setRouteData] = useState<RouteData | null>(null);
+
   return (
     <main style={mainStyle}>
-      <Map />
+      <Map routeData={routeData} />
       <div style={overlayStyle}>
-        <RouteForm />
+        <RouteForm onSubmit={(data: any) => setRouteData(data)} />
       </div>
     </main>
   );
@@ -24,5 +28,7 @@ const overlayStyle: React.CSSProperties = {
   position: "absolute",
   top: "24px",
   left: "24px",
-  zIndex: 10,
+  zIndex: 9999,
+  // Ensure overlay sits above map and receives pointer events
+  pointerEvents: "auto",
 };

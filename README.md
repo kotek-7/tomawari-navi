@@ -7,18 +7,103 @@
 - `backend`: FastAPI (Python 3.12 / `uv` で依存管理)
 - `frontend`: Vite + React + TypeScript (Node 22 / pnpm)
 
-## 使い方
-1. 環境変数ファイルを作成
-```bash
-cp .env.example .env
+## Requirements
+- Docker Engine 24+ / Docker Desktop 4.0+
+- Docker Compose v2 (`docker compose` が使えること)
+- Git
+- Node.js 22+
+- pnpm
+- Python 3.12+
+- uv
+
+## Get Started
+
+### 1. 前提ツールをインストール
+
+#### Windows
+`winget` を使ってインストール:  (すでに入ってれば不要) (多分nodeとgitは入ってる)
+```powershell
+winget install -e --id pnpm.pnpm
+winget install -e --id Docker.DockerDesktop
+winget install -e --id Git.Git
+winget install -e --id OpenJS.NodeJS.LTS
+winget install -e --id AstralSoftware.UV
 ```
 
-2. ビルドして起動
+確認:
+```powershell
+winget --version
+docker --version
+docker compose version
+git --version
+node --version
+pnpm --version
+uv --version
+```
+
+#### トラブルシューティング
+````markdown
+##### 1. 権限不足（管理者権限が暗黙に必要）
+**症状**
+* `Installer failed with exit code`
+* 途中で何も起きずに終了する
+* Docker Desktop だけ失敗する
+
+**対処**
+```powershell
+# PowerShell / Windows Terminal を「管理者として実行」
+winget install -e --id Docker.DockerDesktop
+```
+##### 2. 既存インストールとの競合（PATH・旧バージョン）
+**症状**
+* `Already installed` と出るが実体が壊れている
+* pnpm / node が入ったはずなのに `command not found`
+* Git のバージョンが更新されない
+
+**原因**
+* 手動インストール済みの残骸
+* PATH に古い実体が残っている
+* winget の存在判定は完全一致ではない
+
+**確認**
+```powershell
+winget list | findstr /i node
+winget list | findstr /i git
+```
+
+**対処**
+```powershell
+winget uninstall OpenJS.NodeJS.LTS
+winget uninstall Git.Git
+```
+
+その後 **新しいターミナルを開き直してから再インストール**する。
+（PATH 反映はプロセス再起動が必要）
+
+### 2. 環境変数ファイルを作成
+
+.env ファイルを誰かからもらって `./.env` (.env.example と同じ階層) に配置してください。
+
+### 3. 依存関係をインストール
+
+Frontend:
+```bash
+cd frontend
+pnpm install
+```
+
+Backend:
+```bash
+cd backend
+uv sync
+```
+
+### 4. コンテナ起動
 ```bash
 docker compose up --build
 ```
 
-3. アクセス
+### 5. アクセス
 - Frontend: `http://localhost:5173`
 - Backend root: `http://localhost:8000/`
 - Backend health: `http://localhost:8000/health`
@@ -26,7 +111,6 @@ docker compose up --build
 
 ## backend 開発メモ（uv）
 - 依存定義: `backend/pyproject.toml`
-- ロックファイル（任意）: `backend/uv.lock`
 - コンテナ内起動: `uv sync && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
 
 ## 停止
