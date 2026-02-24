@@ -41,14 +41,44 @@ pnpm --version
 uv --version
 ```
 
-#### macOS / Linux
-以下を事前インストールしてください:
-- Docker / Docker Compose
-- Git
-- Node.js 22+
-- pnpm
-- Python 3.12+
-- uv
+#### トラブルシューティング
+````markdown
+##### 1. 権限不足（管理者権限が暗黙に必要）
+**症状**
+* `Installer failed with exit code`
+* 途中で何も起きずに終了する
+* Docker Desktop だけ失敗する
+
+**対処**
+```powershell
+# PowerShell / Windows Terminal を「管理者として実行」
+winget install -e --id Docker.DockerDesktop
+```
+##### 2. 既存インストールとの競合（PATH・旧バージョン）
+**症状**
+* `Already installed` と出るが実体が壊れている
+* pnpm / node が入ったはずなのに `command not found`
+* Git のバージョンが更新されない
+
+**原因**
+* 手動インストール済みの残骸
+* PATH に古い実体が残っている
+* winget の存在判定は完全一致ではない
+
+**確認**
+```powershell
+winget list | findstr /i node
+winget list | findstr /i git
+```
+
+**対処**
+```powershell
+winget uninstall OpenJS.NodeJS.LTS
+winget uninstall Git.Git
+```
+
+その後 **新しいターミナルを開き直してから再インストール**する。
+（PATH 反映はプロセス再起動が必要）
 
 ### 2. 環境変数ファイルを作成
 
