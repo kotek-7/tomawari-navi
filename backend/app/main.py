@@ -75,6 +75,7 @@ class RouteRequest(BaseModel):
     destination: LatLng
     genre: Literal["sightseeing"] = "sightseeing"
     start_time_iso: str | None = None
+    target_minutes: int | None = Field(default=None, ge=10, le=240)
     weight_kg: float = Field(default=60.0, ge=30.0, le=150.0)
 
 
@@ -353,10 +354,27 @@ def _decide_via_count_by_distance(distance_m: float, max_spots: int = 5) -> int:
     return min(5, max_spots)
 
 
+
+def _decide_via_count_by_target_minutes(target_minutes: int | None, max_spots: int = 5) -> int:
+    if target_minutes is None:
+        return max_spots
+    if target_minutes < 30:
+        return 0
+    if target_minutes < 45:
+        return min(1, max_spots)
+    if target_minutes < 60:
+        return min(2, max_spots)
+    if target_minutes < 90:
+        return min(3, max_spots)
+    if target_minutes < 120:
+        return min(4, max_spots)
+    return min(5, max_spots)
 def _pick_via_spots(req: RouteRequest, max_spots: int = 5) -> list[ViaSpot]:
     a, b = req.origin, req.destination
     base_distance_m = _haversine_m(a, b)
-    target_count = _decide_via_count_by_distance(base_distance_m, max_spots=max_spots)
+    distance_based_count = _decide_via_count_by_distance(base_distance_m, max_spots=max_spots)
+    minutes_based_count = _decide_via_count_by_target_minutes(req.target_minutes, max_spots=max_spots)
+    target_count = min(distance_based_count, minutes_based_count)
     if target_count <= 0:
         return []
 
@@ -480,3 +498,7 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         ),
         via_spots=vias,
     )
+
+
+
+
