@@ -28,9 +28,11 @@ export default function Map({ routeData }: { routeData: RouteData | null }) {
     if (!routeData) return;
 
     // 経由地をOSRMのクエリ形式に変換 (lng,lat;lng,lat...)
+    // routeData.via_spots が undefined の可能性があるため安全に扱います。
+    const viaSpots = routeData.via_spots ?? [];
     const points = [
       routeData.origin,
-      ...routeData.via_spots,
+      ...viaSpots,
       routeData.destination
     ].map(p => `${p.lng},${p.lat}`).join(";");
 
@@ -63,7 +65,7 @@ export default function Map({ routeData }: { routeData: RouteData | null }) {
       {routeData && (
         <>
           <Marker position={[routeData.origin.lat, routeData.origin.lng]} icon={makeLabeledIcon((routeData as any).origin?.name, '#4CD964', 18)} />
-          {routeData.via_spots.map((s, i) => (
+          {(routeData.via_spots ?? []).map((s, i) => (
             <Marker key={`via-${i}`} position={[s.lat, s.lng]} icon={makeLabeledIcon(s.name, '#FFA500', 12)} />
           ))}
           <Marker position={[routeData.destination.lat, routeData.destination.lng]} icon={makeLabeledIcon((routeData as any).destination?.name, '#FF3B30', 18)} />

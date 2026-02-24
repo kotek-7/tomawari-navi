@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MOCK_ROUTE_DATA } from "../testData";
+import { detourRoute } from "../api";
+
 
 export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
   const [targetType, setTargetType] = useState<"time" | "calories">("time");
@@ -9,6 +11,12 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
   const [predictedCalories, setPredictedCalories] = useState<number>(100);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  // ユーザーが入力する地名（文字列）を保持する state
+  // - 現状はテキスト入力で地名を受け取り、バックエンドへ地名形式で送信します。
+  // - 将来的にジオコーディングをフロントエンドで行う場合は、ここで経度緯度を保持する形に変更してください。
+  const [originText, setOriginText] = useState<string>("");
+  const [destinationText, setDestinationText] = useState<string>("");
+
   const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000";
 
   return (
@@ -17,12 +25,12 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
       <div style={sectionStyle}>
         <div style={inputGroupStyle}>
           <label style={labelStyle}>出発地</label>
-          <input type="text" placeholder="現在の場所、または駅名" style={inputStyle} />
+          <input value={originText} onChange={(e) => setOriginText(e.target.value)} type="text" placeholder="現在の場所、または駅名（例: 京都駅）" style={inputStyle} />
         </div>
         
         <div style={inputGroupStyle}>
           <label style={labelStyle}>目的地</label>
-          <input type="text" placeholder="目的地を入力" style={inputStyle} />
+          <input value={destinationText} onChange={(e) => setDestinationText(e.target.value)} type="text" placeholder="目的地を入力（例: 清水寺）" style={inputStyle} />
         </div>
       </div>
 
@@ -88,54 +96,80 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
         try {
           setLoading(true);
           setErrorMessage("");
-          // quick health check with timeout
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 2000);
-          let healthy = false;
-          try {
-            const h = await fetch(`${apiBase}/health`, { signal: controller.signal });
-            healthy = h.ok;
-          } catch (e) {
-            healthy = false;
-          } finally {
-            clearTimeout(timeout);
-          }
+          // ヘルスチェックを行わず、直接リクエストを送信します（開発リクエストの要望に合わせた挙動）。
+          // 長時間待たせずに確実に送信したい場合はここでタイムアウトや再試行の設計を追加してください。
 
-          if (!healthy) {
-            setErrorMessage('バックエンドに接続できません。モックを使用します。');
-            // fallback to MOCK immediately
-            setPredictedTime(MOCK_ROUTE_DATA.summary.total_duration_min);
-            setPredictedCalories(MOCK_ROUTE_DATA.summary.calories_kcal);
-            setShowResult(true);
-            onSubmit?.(MOCK_ROUTE_DATA);
-            return;
-          }
 
-          // send request to backend using mock origin/destination from docs-derived mock
+          // リクエストボディを組み立てます（現状は docs 由来の MOCK_ROUTE_DATA を使用した簡易版です）。
+          // 将来的には以下のフィールドをユーザー入力から組み立てる想定です:
+          // - origin: { lat, lng }
+          // - destination: { lat, lng }
+          // - genre: string (例: "sightseeing")
+          // - start_time_iso: ISO フォーマットの開始時刻文字列または null
+          // - weight_kg: 数値（消費カロリー算出用）
+          // API の型（backend の RouteRequest）に合わせてフィールドを揃えてください。
+          // リクエストボディを組み立てます（地名を送信する仕様に変更）
+          // - origin と destination は { name: string } の形式で送信します。
+          // - バックエンド側で地名を受け取りジオコーディングする実装が必要になる点に注意してください。
+          // 送信前の処理：モック座標を固定で送る仕様のため、入力テキストをジオコーディングしない。
+          // 設定されたモック座標を常に送信する（入力に関係なく固定の座標を使う仕様）
           const body = {
-            origin: MOCK_ROUTE_DATA.origin,
-            destination: MOCK_ROUTE_DATA.destination,
+            origin: { lat: MOCK_ROUTE_DATA.origin.lat, lng: MOCK_ROUTE_DATA.origin.lng, name: originText || MOCK_ROUTE_DATA.origin.name },
+            destination: { lat: MOCK_ROUTE_DATA.destination.lat, lng: MOCK_ROUTE_DATA.destination.lng, name: destinationText || MOCK_ROUTE_DATA.destination.name },
             genre: "sightseeing",
             start_time_iso: null,
-            weight_kg: 60.0
+            weight_kg: 60.0,
           };
-          const res = await fetch(`${apiBase}/v1/routes:detour`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          // show summary in the UI
-          const mins = Math.round((data.summary?.duration_s || 0) / 60);
-          setPredictedTime(mins || MOCK_ROUTE_DATA.summary.total_duration_min);
-          setPredictedCalories(data.summary?.calories_kcal || MOCK_ROUTE_DATA.summary.calories_kcal);
-          setShowResult(true);
-          // propagate full route data to parent
-          onSubmit?.(data);
+
+          // UI 層で送信前の内容を出力（必ず表示されるように console.log を使用）
+          console.log('[UI] Sending detour request body (mock coords):', body);
+
+          // 中央化した API クライアント detourRoute を使ってリクエストを送信します。
+          // レスポンスはそのままコンソールに出力しておきます（デバッグ目的）。
+          try {
+            const resp = await detourRoute(body);
+            console.log('[UI] detour response (raw):', resp);
+            // 親コンポーネントへは body（送信内容）を伝える
+            onSubmit?.(body);
+          } catch (e) {
+            // detourRoute は既に内部で詳細ログを出すためここでは軽く扱う
+            console.error('[UI] detour request failed', e);
+            throw e;
+          }
+          // レスポンスは UI に反映しない（コンソールに出力のみ）
+          return;
         } catch (err) {
+          // 詳細なエラー情報をコンソールに出力して原因追跡を容易にします
           console.error("route request failed", err);
-          setErrorMessage('バックエンド通信中にエラーが発生しました。モックを使用します。');
+          const _err: any = err as any;
+          const rawMsg = _err?.message || String(err);
+          // バックエンドのエラーレスポンスに JSON が含まれている場合はパースして
+          // ユーザーに分かりやすい要約メッセージを表示する。
+          let userMessage = rawMsg;
+          try {
+            const jsonPart = rawMsg.replace(/^.*?:\s*/, '');
+            const parsed = JSON.parse(jsonPart);
+            if (parsed?.detail && Array.isArray(parsed.detail)) {
+              // detail 配列から不足フィールドを抽出して日本語メッセージを作る
+              const missingFields = parsed.detail
+                .map((d: any) => {
+                  const loc = Array.isArray(d.loc) ? d.loc.join('.') : String(d.loc);
+                  const message = d.msg || '';
+                  return `${loc} (${message})`;
+                })
+                .join(', ');
+              userMessage = `バックエンドの入力検証エラー: ${missingFields}。入力候補から選択するか、正確な地名を入力してください。`;
+            }
+          } catch (e) {
+            // JSON パースに失敗したら生のメッセージをそのまま表示
+            userMessage = rawMsg;
+          }
+
+          // UI にもエラーの概要を表示（ユーザーにわかりやすい日本語）
+          setErrorMessage(`${userMessage} モックを使用します。`);
+          // 完全なエラーはコンソールに残す（デバッグ用）
+          console.error('Full backend error:', err);
+
           // fallback to MOCK
           setPredictedTime(MOCK_ROUTE_DATA.summary.total_duration_min);
           setPredictedCalories(MOCK_ROUTE_DATA.summary.calories_kcal);

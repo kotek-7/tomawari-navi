@@ -22,7 +22,10 @@ app.include_router(ranking_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    # 開発環境で frontend が異なるホストやポートからアクセスする際の CORS エラーを防ぐため
+    # 一旦すべてのオリジンを許可する設定に変更しました。
+    # 本番では安全なオリジンに限定してください（例: ['https://example.com']）。
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
