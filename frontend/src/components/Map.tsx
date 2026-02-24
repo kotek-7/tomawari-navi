@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Polyline, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -41,6 +41,23 @@ function MapCenterReporter({ onCenterChange }: { onCenterChange?: (center: LatLn
   return null;
 }
 
+function RecenterController({
+  recenterTick,
+  target,
+}: {
+  recenterTick: number;
+  target: LatLng | null;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (recenterTick <= 0 || !target) return;
+    map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 16), { animate: true, duration: 0.8 });
+  }, [map, recenterTick]);
+
+  return null;
+}
+
 function makeLabeledIcon(label?: string, color = "#4CD964", size = 18) {
   const circle = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:inline-block;vertical-align:middle"></div>`;
   const labelHtml = label
@@ -54,12 +71,80 @@ function makeLabeledIcon(label?: string, color = "#4CD964", size = 18) {
   });
 }
 
+function makeCurrentLocationIcon(heading: number) {
+  const normalized = Number.isFinite(heading) ? heading : 0;
+  return L.divIcon({
+    html: `
+      <div style="position:relative;width:78px;height:78px;">
+        <div style="position:absolute;left:50%;top:50%;width:56px;height:56px;transform:translate(-50%,-50%) rotate(${normalized}deg);transform-origin:50% 50%;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+          <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+            <path d="M32 5 L58 58 L34 44 L6 58 Z" fill="#ef4444"/>
+            <path d="M32 5 L34 44 L6 58 Z" fill="#dc2626"/>
+            <path d="M32 5 L58 58 L34 44 Z" fill="#f87171"/>
+          </svg>
+        </div>
+      </div>
+    `,
+    className: "",
+    iconSize: [78, 78],
+    iconAnchor: [39, 39],
+  });
+}
+
+function CurrentLocationMarker({ onCurrentChange }: { onCurrentChange?: (pos: LatLng) => void }) {
+  const [current, setCurrent] = useState<LatLng | null>(null);
+  const [headingDeg, setHeadingDeg] = useState(0);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const next = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        setCurrent(next);
+        onCurrentChange?.(next);
+        const heading = pos.coords.heading;
+        if (heading !== null && Number.isFinite(heading)) {
+          setHeadingDeg(heading);
+        }
+      },
+      () => {
+        // ignore geolocation errors to avoid blocking map rendering
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000,
+      },
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [onCurrentChange]);
+
+  if (!current) return null;
+  return <Marker position={[current.lat, current.lng]} icon={makeCurrentLocationIcon(headingDeg)} />;
+}
+
 type MapProps = {
   routeData: RouteData | null;
   onCenterChange?: (center: LatLng) => void;
+  onCurrentLocationChange?: (pos: LatLng) => void;
+  recenterTick?: number;
+  recenterTarget?: LatLng | null;
 };
 
-export default function Map({ routeData, onCenterChange }: MapProps) {
+export default function Map({
+  routeData,
+  onCenterChange,
+  onCurrentLocationChange,
+  recenterTick = 0,
+  recenterTarget = null,
+}: MapProps) {
   const routePath = useMemo<[number, number][]>(() => {
     if (!routeData) return [];
     return routeData.route.geojson.coordinates.map(([lng, lat]) => [lat, lng]);
@@ -72,6 +157,8 @@ export default function Map({ routeData, onCenterChange }: MapProps) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapCenterReporter onCenterChange={onCenterChange} />
+      <CurrentLocationMarker onCurrentChange={onCurrentLocationChange} />
+      <RecenterController recenterTick={recenterTick} target={recenterTarget} />
 
       {routePath.length > 0 && (
         <>

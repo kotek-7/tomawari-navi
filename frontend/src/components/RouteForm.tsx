@@ -109,8 +109,19 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
               onFocus={() => setPanelMode("basic")}
               type="text"
               placeholder="目的地を入力"
-              className="w-full rounded-xl border-4 border-sky-500/90 bg-white px-3 py-2 pr-28 text-base text-gray-800 shadow-[0_4px_14px_rgba(0,0,0,0.16)] outline-none placeholder:text-black/30"
+              className="w-full rounded-xl border-4 border-sky-500/90 bg-white py-2 pl-10 pr-28 text-base text-gray-800 shadow-[0_4px_14px_rgba(0,0,0,0.16)] outline-none placeholder:text-black/30"
             />
+            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-red-500">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                className="h-[24px] w-[24px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.1)]"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M536.5-503.5Q560-527 560-560t-23.5-56.5Q513-640 480-640t-56.5 23.5Q400-593 400-560t23.5 56.5Q447-480 480-480t56.5-23.5ZM480-80Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z" />
+              </svg>
+            </div>
             <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1 text-xs font-semibold text-black/35">
               <span>遠回り検索！</span>
               <span>▸</span>
@@ -241,7 +252,7 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
               <span>消費カロリー</span>
               <strong>{mockMetrics.calories} cal</strong>
             </div>
-            <div className="text-xs text-white/90">最短距離より +{mockMetrics.detourDeltaM} m（モック）</div>
+            <div className="text-xs text-white/90">最短距離より +{mockMetrics.detourDeltaM} m</div>
           </div>
 
           <div className="rounded-[10px] bg-white/15 p-2.5">
