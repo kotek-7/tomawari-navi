@@ -1,5 +1,19 @@
 {
-    "origin": { "lat": 35.0037, "lng": 135.7681 },      // 出発地点の経緯度
-    "destination": { "lat": 34.9858, "lng": 135.7588 }, // 目的地点の経緯度
-    "genre": "sightseeing"
+  // Pattern A: send coordinates directly
+  "origin": { "lat": 35.0037, "lng": 135.7681 },
+  "destination": { "lat": 34.9858, "lng": 135.7588 },
+  "genre": "sightseeing",
+  "start_time_iso": "2026-02-24T15:00:00+09:00",
+  "target_minutes": 60,
+  "weight_kg": 60.0
 }
+
+// Pattern B (alternative): send place names for backend geocoding
+// {
+//   "origin_text": "京都駅",
+//   "destination_text": "清水寺",
+//   "genre": "sightseeing",
+//   "start_time_iso": null,
+//   "target_minutes": 45,
+//   "weight_kg": 60.0
+// }
