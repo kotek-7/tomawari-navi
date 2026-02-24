@@ -11,8 +11,10 @@ import asyncpg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from app.ranking import router as ranking_router
 
 app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
+app.include_router(ranking_router)
 
 app.add_middleware(
     CORSMiddleware,
