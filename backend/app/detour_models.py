@@ -100,3 +100,4 @@ class RouteResponse(BaseModel):
     route: RouteGeometry
     summary: Summary
     via_spots: list[ViaSpot]
+    along_route_spots: list[ViaSpot] = Field(default_factory=list)

@@ -36,5 +36,14 @@
       "type": "temple",
       "description": "街中にある小さなお寺。静かで落ち着きます。"
     }
+  ],
+  "along_route_spots": [
+    {
+      "lat": 35.0031,
+      "lng": 135.7688,
+      "name": "祇園白川",
+      "type": "sightseeing",
+      "description": "石畳と水辺の景観が美しい散策路です。"
+    }
   ]
 }

@@ -17,4 +17,5 @@ export interface RouteData {
     calories_kcal: number;
   };
   via_spots: Array<{ lat: number; lng: number; name?: string; type?: string; description?: string }>;
+  along_route_spots?: Array<{ lat: number; lng: number; name?: string; type?: string; description?: string }>;
 }

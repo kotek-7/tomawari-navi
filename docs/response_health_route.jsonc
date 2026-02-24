@@ -36,5 +36,14 @@
       "type": "castle",
       "description": "歴史を感じる城郭。周辺の落ち着いた道も魅力です。"
     }
+  ],
+  "along_route_spots": [
+    {
+      "lat": 35.0065,
+      "lng": 135.7676,
+      "name": "先斗町",
+      "type": "sightseeing",
+      "description": "鴨川沿いの細い路地が続く京都らしい通りです。"
+    }
   ]
 }

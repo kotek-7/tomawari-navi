@@ -33,12 +33,21 @@ def request_ors_route_sync(req: RouteRequest, vias: list[ViaSpot]) -> tuple[GeoJ
         "OPENROUTESERVICE_DIRECTIONS_URL",
         "https://api.openrouteservice.org/v2/directions/foot-walking/geojson",
     )
+    coordinates = _build_ors_coordinates(req, vias)
+    snap_radius_m = int(os.getenv("ORS_SNAP_RADIUS_M", "2000"))
     payload = {
-        "coordinates": _build_ors_coordinates(req, vias),
+        "coordinates": coordinates,
         "instructions": False,
         "elevation": False,
+        # 地名ジオコーディング点が道路上にない場合でも、近傍道路へスナップしやすくする。
+        "radiuses": [snap_radius_m] * len(coordinates),
     }
-    logger.info("ors request start: via_count=%s point_count=%s", len(vias), len(payload["coordinates"]))
+    logger.info(
+        "ors request start: via_count=%s point_count=%s snap_radius_m=%s",
+        len(vias),
+        len(payload["coordinates"]),
+        snap_radius_m,
+    )
 
     request = Request(
         url=url,

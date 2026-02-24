@@ -45,6 +45,9 @@ export default function Map({ routeData }: { routeData: RouteData | null }) {
           {(routeData.via_spots ?? []).map((s, i) => (
             <Marker key={`via-${i}`} position={[s.lat, s.lng]} icon={makeLabeledIcon(s.name, '#FFA500', 12)} />
           ))}
+          {(routeData.along_route_spots ?? []).map((s, i) => (
+            <Marker key={`along-${i}`} position={[s.lat, s.lng]} icon={makeLabeledIcon(s.name, '#00AEEF', 10)} />
+          ))}
           <Marker position={[routeData.destination.lat, routeData.destination.lng]} icon={makeLabeledIcon((routeData as any).destination?.name, '#FF3B30', 18)} />
         </>
       )}

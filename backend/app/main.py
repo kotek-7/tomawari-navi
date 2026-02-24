@@ -8,6 +8,7 @@ import asyncpg
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.along_route_spots import select_along_route_spots
 from app.app_logger import get_logger
 from app.detour_models import RouteGeometry, RouteRequest, RouteResponse, Summary
 from app.geo_utils import estimate_calories_kcal, haversine_m, minimum_required_minutes, parse_start_time
@@ -143,11 +144,20 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
     start_dt = parse_start_time(req.start_time_iso)
     eta_dt = start_dt + timedelta(seconds=duration_s)
     calories = estimate_calories_kcal(dist, req.weight_kg)
+    max_along_route_spots = int(os.getenv("MAX_ALONG_ROUTE_SPOTS", "8"))
+    along_route_spots = select_along_route_spots(
+        route_geojson,
+        origin=origin,
+        destination=destination,
+        exclude_spots=routed_vias,
+        max_spots=max_along_route_spots,
+    )
     route_id = f"route_{uuid.uuid4().hex[:12]}"
     logger.info(
-        "detour_route done: route_id=%s via_count=%s distance_m=%s duration_s=%s elapsed_ms=%.1f",
+        "detour_route done: route_id=%s via_count=%s along_count=%s distance_m=%s duration_s=%s elapsed_ms=%.1f",
         route_id,
-        len(vias),
+        len(routed_vias),
+        len(along_route_spots),
         int(round(dist)),
         duration_s,
         (time.perf_counter() - started_at) * 1000.0,
@@ -167,4 +177,5 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
             calories_kcal=calories,
         ),
         via_spots=routed_vias,
+        along_route_spots=along_route_spots,
     )
