@@ -1,73 +1,48 @@
 {
-    "status": "ok",
-
-    "route_id": "kyoto_health_0001",
-    "genre": "health",
-
-    "origin": { "lat": 35.0037, "lng": 135.7681, "name": "出発地点" },
-    "destination": { "lat": 34.9858, "lng": 135.7588, "name": "目的地点" },
-
-    "route": {
-        "polyline": {
-            "format": "latlng_array",
-            "points": [
-                { "lat": 35.0037, "lng": 135.7681 },
-                { "lat": 35.0042, "lng": 135.7702 },
-                { "lat": 35.0029, "lng": 135.7650 },
-                { "lat": 34.9858, "lng": 135.7588 }
-            ]
-        }
+  "status": "ok",
+  "route_id": "route_c9f9592db009",
+  "genre": "health",
+  "origin": {
+    "lat": 35.0037,
+    "lng": 135.7681,
+  },
+  "destination": {
+    "lat": 34.9858,
+    "lng": 135.7588,
+  },
+  "route": {
+    "polyline": {
+      "format": "latlng_array",
+      "points": [
+        { "lat": 35.0037, "lng": 135.7681 },
+        { "lat": 35.0043, "lng": 135.7646 },
+        { "lat": 35.0104, "lng": 135.7539 },
+        { "lat": 34.9858, "lng": 135.7588 },
+      ],
     },
-
-    "summary": {
-        "distance_m": 3200,     // ルートの距離
-        "duration_s": 2400,     // 所要時間(秒) 
-        "eta_iso": "2026-02-23T15:40:00+09:00", // 到着予定時間
-        "calories_kcal": 173
+  },
+  "summary": {
+    "distance_m": 4319,
+    "duration_s": 3239,
+    "eta_iso": "2026-02-24T20:53:59+09:00",
+    "calories_kcal": 233,
+    "target_calories_kcal": null,
+    "target_calories_achieved": null,
+  },
+  "via_spots": [
+    {
+      "lat": 35.0043,
+      "lng": 135.7646,
+      "name": "錦市場",
+      "type": "market",
+      "description": "京の台所。食べ歩きが楽しい通りです。",
     },
-
-    // ルートに沿った標高の推移データ
-    "elevation_profile": [
-        { "distance_m": 0, "elevation_m": 45 },
-        { "distance_m": 500, "elevation_m": 48 },
-        { "distance_m": 1000, "elevation_m": 60 },
-        { "distance_m": 1500, "elevation_m": 55 },
-        { "distance_m": 2000, "elevation_m": 52 },
-        { "distance_m": 2500, "elevation_m": 50 },
-        { "distance_m": 3200, "elevation_m": 47 }
-    ],
-
-    // optional
-    "health_metrics": {
-        "estimated_steps": 4200,    // 推定歩数
-
-        "total_elevation_gain_m": 85,   // 上り坂の合計
-        "max_slope_percent": 9.2,       // 最大勾配
-        
-        // 騒音推定値(optional)
-        "noise": {      
-        "unit": "dBA",  //  デシベル
-        "avg_dba": 58.4,    // 平均騒音
-        "max_dba": 71.2,    // 最大騒音
-        "method": "segment_weighted_average"    //騒音の計算方法
-        }
+    {
+      "lat": 35.0104,
+      "lng": 135.7539,
+      "name": "二条城",
+      "type": "castle",
+      "description": "歴史を感じる城郭。周辺の落ち着いた道も魅力です。",
     },
-
-    
-    "via_spots": [
-        {
-        "lat": 35.0043,
-        "lng": 135.7646,
-        "name": "錦市場",
-        "type": "market",
-        "description": "京の台所。食べ歩きが楽しい通りです。"
-        },
-        {
-        "lat": 35.0070,
-        "lng": 135.7619,
-        "name": "六角堂",
-        "type": "temple",
-        "description": "街中にある小さなお寺。静かで落ち着きます。"
-        }
-    ]
+  ],
 }
