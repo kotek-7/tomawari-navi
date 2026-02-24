@@ -153,7 +153,13 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
       )}
 
       {panelMode !== "collapsed" && (
-        <div className="mt-3 space-y-3">
+        <div className="relative mt-2 space-y-3">
+          <div className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2">
+            <div className="flex flex-col items-center gap-1 text-white/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
+              <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+            </div>
+          </div>
           <div className="grid grid-cols-[1fr_auto] items-end gap-3">
             <div>
               <label className="mb-1 block text-xs font-bold tracking-[0.03em] text-sky-100">目的地</label>
