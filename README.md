@@ -110,7 +110,7 @@ docker compose up --build
 
 ## backend 開発メモ（uv）
 - 依存定義: `backend/pyproject.toml`
-- コンテナ内起動: `uv sync && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
+- コンテナ内起動: `uv sync && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app --reload-exclude '.venv/*' --reload-exclude 'data/*'`
 
 ## 停止
 ```bash
