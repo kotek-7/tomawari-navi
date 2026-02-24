@@ -5,7 +5,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 from datetime import datetime, timedelta, timezone
-from math import asin, cos, radians, sin, sqrt
+from math import asin, cos, isfinite, radians, sin, sqrt
 from pathlib import Path
 from typing import Literal
 from urllib.error import HTTPError, URLError
@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 import asyncpg
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
 
@@ -70,8 +70,8 @@ JST = timezone(timedelta(hours=9))
 
 
 class LatLng(BaseModel):
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90.0, le=90.0)
+    lng: float = Field(ge=-180.0, le=180.0)
 
 
 class RouteRequest(BaseModel):
@@ -84,10 +84,54 @@ class RouteRequest(BaseModel):
     target_minutes: int | None = Field(default=None, ge=10, le=240)
     weight_kg: float = Field(default=60.0, ge=30.0, le=150.0)
 
+    @field_validator("origin_text", "destination_text")
+    @classmethod
+    def _validate_place_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("must not be blank")
+        return trimmed
+
+    @field_validator("start_time_iso")
+    @classmethod
+    def _validate_start_time_iso(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            datetime.fromisoformat(value)
+        except ValueError as e:
+            raise ValueError("must be ISO-8601 datetime format") from e
+        return value
+
+    @model_validator(mode="after")
+    def _validate_points_or_text(self) -> "RouteRequest":
+        if self.origin is None and self.origin_text is None:
+            raise ValueError("origin or origin_text is required")
+        if self.destination is None and self.destination_text is None:
+            raise ValueError("destination or destination_text is required")
+        return self
+
 
 class GeoJSONLineString(BaseModel):
     type: Literal["LineString"] = "LineString"
     coordinates: list[list[float]]
+
+    @field_validator("coordinates")
+    @classmethod
+    def _validate_coordinates(cls, coordinates: list[list[float]]) -> list[list[float]]:
+        if len(coordinates) < 2:
+            raise ValueError("LineString must have at least 2 coordinates")
+        for idx, point in enumerate(coordinates):
+            if len(point) != 2:
+                raise ValueError(f"coordinate at index {idx} must be [lng, lat]")
+            lng, lat = point
+            if not (isfinite(lng) and isfinite(lat)):
+                raise ValueError(f"coordinate at index {idx} must be finite numbers")
+            if lng < -180.0 or lng > 180.0 or lat < -90.0 or lat > 90.0:
+                raise ValueError(f"coordinate at index {idx} is out of range")
+        return coordinates
 
 
 class RouteGeometry(BaseModel):
@@ -583,5 +627,4 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         ),
         via_spots=vias,
     )
-
 
