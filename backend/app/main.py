@@ -20,6 +20,7 @@ from app.detour_models import (
 )
 from app.geo_utils import estimate_calories_kcal, haversine_m, minimum_required_minutes, parse_start_time
 from app.geocoding import resolve_route_points
+from app.history import append_route_history_async, create_route_history_entry
 from app.nearby_spots import select_nearby_spots
 from app.ors_client import request_ors_route_sync
 from app.via_selector import pick_via_spots
@@ -75,6 +76,25 @@ async def nearby_spots(req: NearbySpotsRequest) -> NearbySpotsResponse:
         radius_m=float(req.radius_m),
         limit=req.limit,
     )
+    top_spot_name = spots[0].name if spots else ""
+    history_entry = create_route_history_entry(
+        search_type="nearby_spots",
+        origin=req.current.model_dump(),
+        destination={},
+        request_payload=req.model_dump(),
+        response_summary={
+            "spot_count": len(spots),
+            "radius_m": req.radius_m,
+        },
+        metadata={
+            "spot_name": top_spot_name,
+        },
+    )
+    try:
+        await append_route_history_async(history_entry)
+    except Exception as e:
+        logger.warning("nearby_spots history append failed: %s", e)
+
     logger.info(
         "nearby_spots done: current=(%.6f, %.6f) radius_m=%s limit=%s matched=%s",
         req.current.lat,
