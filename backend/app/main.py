@@ -126,7 +126,7 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         bool(req.destination_text),
     )
     try:
-        origin, destination = await resolve_route_points(req)
+        origin, destination, origin_geocoding, destination_geocoding = await resolve_route_points(req)
     except ValueError as e:
         logger.warning("detour_route validation failed at resolve_route_points: %s", e)
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -222,6 +222,8 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         genre="sightseeing",
         origin=origin,
         destination=destination,
+        origin_geocoding=origin_geocoding,
+        destination_geocoding=destination_geocoding,
         route=RouteGeometry(geojson=route_geojson),
         summary=Summary(
             distance_m=int(round(dist)),

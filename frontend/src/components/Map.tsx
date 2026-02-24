@@ -41,6 +41,24 @@ function MapCenterReporter({ onCenterChange }: { onCenterChange?: (center: LatLn
   return null;
 }
 
+function MapZoomReporter({ onZoomChange }: { onZoomChange?: (zoom: number) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!onZoomChange) return;
+    onZoomChange(map.getZoom());
+  }, [map, onZoomChange]);
+
+  useMapEvents({
+    zoomend() {
+      if (!onZoomChange) return;
+      onZoomChange(map.getZoom());
+    },
+  });
+
+  return null;
+}
+
 function RecenterController({
   recenterTick,
   target,
@@ -69,6 +87,91 @@ function makeLabeledIcon(label?: string, color = "#4CD964", size = 18) {
     iconSize: [size + (label ? 120 : size), size],
     iconAnchor: [Math.floor(size / 2), Math.floor(size / 2)],
   });
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function spotTypeJa(type?: string): string {
+  const key = (type || "").trim().toLowerCase();
+  const table: Record<string, string> = {
+    shrine: "神社",
+    temple: "寺院",
+    castle: "城",
+    market: "市場",
+    river: "川",
+    museum: "博物館",
+    park: "公園",
+    sightseeing: "観光地",
+  };
+  return table[key] || "観光地";
+}
+
+function makeDotIcon(color = "#FFA500", size = 12) {
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:999px;background:${color};border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.28);"></div>`,
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [Math.floor(size / 2), Math.floor(size / 2)],
+  });
+}
+
+function makeWaypointDetailIcon(name?: string, type?: string, description?: string) {
+  const safeName = escapeHtml((name || "スポット").trim());
+  const safeType = escapeHtml(spotTypeJa(type));
+  const descText = (description || "").trim();
+  const safeDesc = escapeHtml(descText.length > 36 ? `${descText.slice(0, 36)}...` : descText || "詳細情報なし");
+  return L.divIcon({
+    html: `
+      <div style="display:flex;align-items:flex-start;gap:8px;white-space:nowrap;">
+        <div style="margin-top:2px;width:12px;height:12px;border-radius:999px;background:#f59e0b;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.28);"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;max-width:230px;padding:6px 8px;border-radius:12px;background:#fff;border:2px solid #f59e0b;box-shadow:0 3px 8px rgba(0,0,0,0.16);line-height:1.2;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:12px;font-weight:800;color:#111;">${safeName}</span>
+            <span style="font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;padding:1px 6px;border-radius:999px;">${safeType}</span>
+          </div>
+          <div style="font-size:10px;color:#444;max-width:210px;overflow:hidden;text-overflow:ellipsis;">${safeDesc}</div>
+        </div>
+      </div>
+    `,
+    className: "",
+    iconSize: [260, 58],
+    iconAnchor: [6, 6],
+  });
+}
+
+function makeEndpointIcon(label: string, kind: "origin" | "destination") {
+  const config =
+    kind === "origin"
+      ? { color: "#0061c8", badge: "出発", badgeBg: "#005e87" }
+      : { color: "#ef4444", badge: "到着", badgeBg: "#d01010" };
+  return L.divIcon({
+    html: `
+      <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+        <div style="position:relative;width:24px;height:24px;border-radius:50%;background:${config.color};border:4px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:14px;background:rgba(255,255,255,0.98);border:2px solid ${config.color};box-shadow:0 3px 8px rgba(0,0,0,0.18);">
+          <span style="display:inline-block;padding:2px 6px;border-radius:999px;background:${config.badgeBg};color:#fff;font-size:10px;font-weight:800;line-height:1;">${config.badge}</span>
+          <span style="color:#111;font-size:12px;font-weight:800;">${label}</span>
+        </div>
+      </div>
+    `,
+    className: "",
+    iconSize: [200, 28],
+    iconAnchor: [12, 12],
+  });
+}
+
+function endpointLabel(raw: string | undefined, fallback: string): string {
+  if (!raw || !raw.trim()) return fallback;
+  const cleaned = raw.trim();
+  const head = cleaned.split(",")[0]?.trim() || cleaned;
+  return head.length > 24 ? `${head.slice(0, 24)}...` : head;
 }
 
 function makeCurrentLocationIcon(heading: number) {
@@ -145,10 +248,24 @@ export default function Map({
   recenterTick = 0,
   recenterTarget = null,
 }: MapProps) {
+  const [zoom, setZoom] = useState(14);
+
   const routePath = useMemo<[number, number][]>(() => {
     if (!routeData) return [];
     return routeData.route.geojson.coordinates.map(([lng, lat]) => [lat, lng]);
   }, [routeData]);
+
+  const waypointIconMode = zoom >= 17 ? "detail" : zoom >= 16 ? "name" : "dot";
+
+  function waypointIcon(spot: { name?: string; type?: string; description?: string }) {
+    if (waypointIconMode === "dot") {
+      return makeDotIcon("#FFA500", 12);
+    }
+    if (waypointIconMode === "detail") {
+      return makeWaypointDetailIcon(spot.name, spot.type, spot.description);
+    }
+    return makeLabeledIcon(spot.name, "#FFA500", 12);
+  }
 
   return (
     <MapContainer center={[35.0394, 135.7292]} zoom={14} style={{ width: "100%", height: "100%" }}>
@@ -157,6 +274,7 @@ export default function Map({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapCenterReporter onCenterChange={onCenterChange} />
+      <MapZoomReporter onZoomChange={setZoom} />
       <CurrentLocationMarker onCurrentChange={onCurrentLocationChange} />
       <RecenterController recenterTick={recenterTick} target={recenterTarget} />
 
@@ -171,21 +289,17 @@ export default function Map({
         <>
           <Marker
             position={[routeData.origin.lat, routeData.origin.lng]}
-            icon={makeLabeledIcon(routeData.origin?.name, "#4CD964", 18)}
+            icon={makeEndpointIcon(endpointLabel(routeData.origin?.name, "出発地"), "origin")}
           />
           {(routeData.via_spots ?? []).map((s, i) => (
-            <Marker key={`via-${i}`} position={[s.lat, s.lng]} icon={makeLabeledIcon(s.name, "#FFA500", 12)} />
+            <Marker key={`via-${i}`} position={[s.lat, s.lng]} icon={waypointIcon(s)} />
           ))}
           {(routeData.along_route_spots ?? []).map((s, i) => (
-            <Marker
-              key={`along-${i}`}
-              position={[s.lat, s.lng]}
-              icon={makeLabeledIcon(s.name, "#FFA500", 12)}
-            />
+            <Marker key={`along-${i}`} position={[s.lat, s.lng]} icon={waypointIcon(s)} />
           ))}
           <Marker
             position={[routeData.destination.lat, routeData.destination.lng]}
-            icon={makeLabeledIcon(routeData.destination?.name, "#FF3B30", 18)}
+            icon={makeEndpointIcon(endpointLabel(routeData.destination?.name, "目的地"), "destination")}
           />
         </>
       )}

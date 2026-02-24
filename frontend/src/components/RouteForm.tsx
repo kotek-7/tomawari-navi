@@ -356,6 +356,7 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
               {!lastRoute && <div className="text-white/80">まだ検索していません</div>}
             </div>
           </div>
+
         </div>
       )}
 

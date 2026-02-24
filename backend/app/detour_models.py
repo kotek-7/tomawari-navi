@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 class LatLng(BaseModel):
     lat: float = Field(ge=-90.0, le=90.0)
     lng: float = Field(ge=-180.0, le=180.0)
+    name: str | None = None
 
 
 class RouteRequest(BaseModel):
@@ -108,12 +109,26 @@ class Summary(BaseModel):
     calories_kcal: int
 
 
+class GeocodingInfo(BaseModel):
+    query: str
+    display_name: str | None = None
+    place_id: int | None = None
+    osm_type: str | None = None
+    osm_id: int | None = None
+    category: str | None = None
+    type: str | None = None
+    importance: float | None = None
+    address: dict[str, str] | None = None
+
+
 class RouteResponse(BaseModel):
     status: Literal["ok"]
     route_id: str
     genre: Literal["sightseeing"]
     origin: LatLng
     destination: LatLng
+    origin_geocoding: GeocodingInfo | None = None
+    destination_geocoding: GeocodingInfo | None = None
     route: RouteGeometry
     summary: Summary
     via_spots: list[ViaSpot]
