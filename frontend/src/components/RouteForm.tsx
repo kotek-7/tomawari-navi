@@ -26,7 +26,6 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
   const [panelMode, setPanelMode] = useState<PanelMode>("collapsed");
   const [suggestions, setSuggestions] = useState<RankingItem[]>([]);
   const [isDestinationFocused, setIsDestinationFocused] = useState(false);
-  const [isSuggestLoading, setIsSuggestLoading] = useState(false);
   const rankingRequestSeqRef = useRef(0);
 
   const targetMinutes = useMemo(() => {
@@ -78,16 +77,12 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
     const seq = ++rankingRequestSeqRef.current;
     const timer = window.setTimeout(async () => {
       try {
-        setIsSuggestLoading(true);
         const items = await fetchRankingSuggestions(keyword, 8);
         if (rankingRequestSeqRef.current !== seq) return;
         setSuggestions(items);
       } catch {
         if (rankingRequestSeqRef.current !== seq) return;
         setSuggestions([]);
-      } finally {
-        if (rankingRequestSeqRef.current !== seq) return;
-        setIsSuggestLoading(false);
       }
     }, 220);
 
