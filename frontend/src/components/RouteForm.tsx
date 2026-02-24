@@ -1,173 +1,168 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { detourRoute } from "../api";
 import type { RouteData } from "../types/route";
 
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
 
 export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) => void }) {
-  const [targetType, setTargetType] = useState<"time" | "calories">("time");
-  const [priority, setPriority] = useState<"health" | "sightseeing">("health");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  // ユーザーが入力する地名（文字列）を保持する state
-  // - 現状はテキスト入力で地名を受け取り、バックエンドへ地名形式で送信します。
-  // - 将来的にジオコーディングをフロントエンドで行う場合は、ここで経度緯度を保持する形に変更してください。
   const [originText, setOriginText] = useState<string>("");
   const [destinationText, setDestinationText] = useState<string>("");
-  const [targetValue, setTargetValue] = useState<string>("");
+  const [targetMinutesText, setTargetMinutesText] = useState<string>("60");
+  const [lastRoute, setLastRoute] = useState<RouteData | null>(null);
+
+  const targetMinutes = useMemo(() => {
+    const parsed = Number.parseInt(targetMinutesText, 10);
+    return Number.isFinite(parsed) ? clamp(parsed, 10, 240) : 60;
+  }, [targetMinutesText]);
+
+  const mockMetrics = useMemo(() => {
+    const steps = Math.round(targetMinutes * 80);
+    const calories = Math.round(targetMinutes * 4.8);
+    const detourDeltaM = Math.round(targetMinutes * 70);
+    return { steps, calories, detourDeltaM };
+  }, [targetMinutes]);
+
+  async function handleSubmit() {
+    try {
+      const origin = originText.trim();
+      const destination = destinationText.trim();
+      if (!origin || !destination) {
+        setErrorMessage("出発地と目的地を入力してください。");
+        return;
+      }
+
+      setLoading(true);
+      setErrorMessage("");
+
+      const body = {
+        origin_text: origin,
+        destination_text: destination,
+        genre: "sightseeing",
+        start_time_iso: null,
+        target_minutes: targetMinutes,
+        weight_kg: 60.0,
+      };
+
+      console.log("[UI] Sending detour request body:", body);
+      const resp = await detourRoute(body);
+      console.log("[UI] detour response (raw):", resp);
+
+      setLastRoute(resp);
+      onSubmit?.(resp);
+    } catch (err) {
+      console.error("route request failed", err);
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(rawMsg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div style={containerStyle}>
-      {/* 経路入力セクション */}
       <div style={sectionStyle}>
         <div style={inputGroupStyle}>
           <label style={labelStyle}>出発地</label>
-          <input value={originText} onChange={(e) => setOriginText(e.target.value)} type="text" placeholder="現在の場所、または駅名（例: 京都駅）" style={inputStyle} />
+          <input
+            value={originText}
+            onChange={(e) => setOriginText(e.target.value)}
+            type="text"
+            placeholder="現在地、または駅名"
+            style={inputStyle}
+          />
         </div>
-        
+
         <div style={inputGroupStyle}>
           <label style={labelStyle}>目的地</label>
-          <input value={destinationText} onChange={(e) => setDestinationText(e.target.value)} type="text" placeholder="目的地を入力（例: 清水寺）" style={inputStyle} />
+          <input
+            value={destinationText}
+            onChange={(e) => setDestinationText(e.target.value)}
+            type="text"
+            placeholder="目的地を入力"
+            style={inputStyle}
+          />
         </div>
       </div>
 
-      {/* 目標設定の切り替え */}
       <div style={inputGroupStyle}>
-        <label style={labelStyle}>目標設定</label>
+        <label style={labelStyle}>遠回りルート</label>
         <div style={segmentContainerStyle}>
-          <button 
-            onClick={() => setTargetType("time")}
-            style={targetType === "time" ? activeSegmentStyle : inactiveSegmentStyle}
-          >
-            時間
+          <button type="button" style={activeSegmentStyle}>
+            観光
           </button>
-          <button 
-            onClick={() => setTargetType("calories")}
-            style={targetType === "calories" ? activeSegmentStyle : inactiveSegmentStyle}
-          >
-            カロリー
+          <button type="button" disabled style={disabledSegmentStyle}>
+            健康
           </button>
         </div>
       </div>
 
-      {/* 数値入力エリア */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: "12px", padding: "8px 0" }}>
-        <input 
-          type="number" 
-          value={targetValue}
-          onChange={(e) => setTargetValue(e.target.value)}
-          placeholder={targetType === "time" ? "60" : "300"} 
-          style={numberInputStyle} 
-        />
-        <span style={unitStyle}>
-          {targetType === "time" ? "分" : "kcal"}
-        </span>
-      </div>
+      <div style={inlineGridStyle}>
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>時間</label>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+            <input
+              type="number"
+              min={10}
+              max={240}
+              value={targetMinutesText}
+              onChange={(e) => setTargetMinutesText(e.target.value)}
+              style={numberInputStyle}
+            />
+            <span style={unitStyle}>分</span>
+          </div>
+        </div>
 
-      {/* 重視する項目の選択（セグメントコントロール形式） */}
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>重視する項目</label>
-        <div style={priorityContainerStyle}>
-          <button 
-            onClick={() => setPriority("health")}
-            style={priority === "health" ? activePriorityStyle : inactivePriorityStyle}
-          >
-            健康 (坂道・運動量)
-          </button>
-          <button 
-            onClick={() => setPriority("sightseeing")}
-            style={priority === "sightseeing" ? activePriorityStyle : inactivePriorityStyle}
-          >
-            観光 (名所・景観)
-          </button>
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>カテゴリ</label>
+          <select value="none" disabled style={disabledSelectStyle}>
+            <option value="none">指定なし</option>
+            <option value="temple">神社・寺</option>
+            <option value="local">ローカルなお店</option>
+            <option value="nature">自然</option>
+          </select>
         </div>
       </div>
 
-      {errorMessage && <div style={{color:'#fff',background:'rgba(0,0,0,0.25)',padding:'8px',borderRadius:8,fontSize:13}}>{errorMessage}</div>}
-      <button onClick={async () => {
-        try {
-          const origin = originText.trim();
-          const destination = destinationText.trim();
-          if (!origin || !destination) {
-            setErrorMessage("出発地と目的地を入力してください。");
-            return;
-          }
+      <div style={metricsCardStyle}>
+        <div style={metricRowStyle}>
+          <span>推定歩数</span>
+          <strong>{mockMetrics.steps.toLocaleString()} 歩</strong>
+        </div>
+        <div style={metricRowStyle}>
+          <span>消費カロリー</span>
+          <strong>{mockMetrics.calories} cal</strong>
+        </div>
+        <div style={deltaStyle}>最短距離より +{mockMetrics.detourDeltaM} m（モック）</div>
+      </div>
 
-          setLoading(true);
-          setErrorMessage("");
-          const parsedTarget = Number.parseInt(targetValue, 10);
-          const targetMinutes =
-            targetType === "time" && Number.isFinite(parsedTarget) ? parsedTarget : null;
+      {errorMessage && <div style={errorStyle}>{errorMessage}</div>}
 
-          const body = {
-            origin_text: origin,
-            destination_text: destination,
-            genre: "sightseeing",
-            start_time_iso: null,
-            target_minutes: targetMinutes,
-            weight_kg: 60.0,
-          };
-
-          console.log('[UI] Sending detour request body:', body);
-
-          // 中央化した API クライアント detourRoute を使ってリクエストを送信します。
-          // レスポンスはそのままコンソールに出力しておきます（デバッグ目的）。
-          try {
-            const resp = await detourRoute(body);
-            console.log('[UI] detour response (raw):', resp);
-            // 親コンポーネントへは API レスポンスをそのまま渡す
-            onSubmit?.(resp as RouteData);
-          } catch (e) {
-            // detourRoute は既に内部で詳細ログを出すためここでは軽く扱う
-            console.error('[UI] detour request failed', e);
-            throw e;
-          }
-          // レスポンスは UI に反映しない（コンソールに出力のみ）
-          return;
-        } catch (err) {
-          // 詳細なエラー情報をコンソールに出力して原因追跡を容易にします
-          console.error("route request failed", err);
-          const _err: any = err as any;
-          const rawMsg = _err?.message || String(err);
-          // バックエンドのエラーレスポンスに JSON が含まれている場合はパースして
-          // ユーザーに分かりやすい要約メッセージを表示する。
-          let userMessage = rawMsg;
-          try {
-            const jsonPart = rawMsg.replace(/^.*?:\s*/, '');
-            const parsed = JSON.parse(jsonPart);
-            if (parsed?.detail && Array.isArray(parsed.detail)) {
-              // detail 配列から不足フィールドを抽出して日本語メッセージを作る
-              const missingFields = parsed.detail
-                .map((d: any) => {
-                  const loc = Array.isArray(d.loc) ? d.loc.join('.') : String(d.loc);
-                  const message = d.msg || '';
-                  return `${loc} (${message})`;
-                })
-                .join(', ');
-              userMessage = `バックエンドの入力検証エラー: ${missingFields}。入力候補から選択するか、正確な地名を入力してください。`;
-            }
-          } catch {
-            // JSON パースに失敗したら生のメッセージをそのまま表示
-            userMessage = rawMsg;
-          }
-
-          // UI にもエラーの概要を表示（ユーザーにわかりやすい日本語）
-          setErrorMessage(userMessage);
-          // 完全なエラーはコンソールに残す（デバッグ用）
-          console.error('Full backend error:', err);
-        } finally {
-          setLoading(false);
-        }
-      }} style={submitButtonStyle}>
-        {loading ? "生成中..." : "ルートを生成する"}
+      <button onClick={handleSubmit} disabled={loading} style={submitButtonStyle}>
+        {loading ? "生成中..." : "検索"}
       </button>
+
+      <div style={spotsCardStyle}>
+        <div style={spotsTitleStyle}>スポット</div>
+        <div style={spotsListStyle}>
+          {[...(lastRoute?.via_spots ?? []), ...(lastRoute?.along_route_spots ?? [])].map((s, i) => (
+            <div key={`${s.name ?? "spot"}-${i}`} style={spotItemStyle}>
+              <span style={spotDotStyle} />
+              <span>{s.name ?? "スポット"}</span>
+            </div>
+          ))}
+          {!lastRoute && <div style={spotPlaceholderStyle}>まだ検索していません</div>}
+        </div>
+      </div>
     </div>
   );
 }
 
-// --- Styles (Fast Refreshエラー防止のためexportしない) ---
-
 const containerStyle: React.CSSProperties = {
-  width: "300px",
+  width: "320px",
   backgroundColor: "#1E90FF",
   padding: "18px 16px",
   borderRadius: "12px",
@@ -181,14 +176,21 @@ const containerStyle: React.CSSProperties = {
 const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "16px",
+  gap: "12px",
+};
+
+const inlineGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "12px",
+  alignItems: "end",
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: "11px",
+  fontSize: "12px",
   fontWeight: "700",
   color: "#E6F7FF",
-  letterSpacing: "0.05em",
+  letterSpacing: "0.03em",
   marginBottom: "8px",
 };
 
@@ -198,28 +200,30 @@ const inputGroupStyle: React.CSSProperties = {
 };
 
 const inputStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.22)",
   border: "none",
-  padding: "8px 10px",
+  padding: "10px 12px",
   fontSize: "14px",
-  color: "#000",
+  color: "#ffffff",
   borderRadius: "8px",
   outline: "none",
 };
 
 const numberInputStyle: React.CSSProperties = {
-  background: "transparent",
+  background: "rgba(255,255,255,0.22)",
   border: "none",
-  fontSize: "28px",
+  borderRadius: "8px",
+  padding: "8px 10px",
+  fontSize: "20px",
   fontWeight: "700",
-  width: "120px",
+  width: "84px",
   outline: "none",
-  color: "#000",
+  color: "#ffffff",
 };
 
 const unitStyle: React.CSSProperties = {
   fontSize: "14px",
-  fontWeight: "600",
+  fontWeight: "700",
   color: "#E6F7FF",
 };
 
@@ -228,74 +232,116 @@ const segmentContainerStyle: React.CSSProperties = {
   backgroundColor: "rgba(255,255,255,0.12)",
   padding: "6px",
   borderRadius: "10px",
+  gap: "6px",
 };
 
 const activeSegmentStyle: React.CSSProperties = {
   flex: 1,
   padding: "8px",
   fontSize: "13px",
-  fontWeight: "600",
+  fontWeight: "700",
   borderRadius: "8px",
   border: "none",
   backgroundColor: "rgba(255,255,255,0.25)",
   color: "#fff",
-  boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-  cursor: "pointer",
+  cursor: "default",
 };
 
-const inactiveSegmentStyle: React.CSSProperties = {
+const disabledSegmentStyle: React.CSSProperties = {
   flex: 1,
   padding: "8px",
   fontSize: "13px",
-  fontWeight: "500",
+  fontWeight: "600",
   borderRadius: "8px",
   border: "none",
-  backgroundColor: "transparent",
-  color: "rgba(230,247,255,0.95)",
-  cursor: "pointer",
+  backgroundColor: "rgba(0,0,0,0.12)",
+  color: "rgba(230,247,255,0.55)",
+  cursor: "not-allowed",
 };
 
-const priorityContainerStyle: React.CSSProperties = {
+const disabledSelectStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.22)",
+  border: "none",
+  padding: "10px 10px",
+  borderRadius: "8px",
+  color: "rgba(255,255,255,0.7)",
+  cursor: "not-allowed",
+};
+
+const metricsCardStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.14)",
+  borderRadius: "10px",
+  padding: "10px",
   display: "flex",
-  flexDirection: "row",
-  gap: "8px",
+  flexDirection: "column",
+  gap: "6px",
+};
+
+const metricRowStyle: React.CSSProperties = {
+  display: "flex",
   justifyContent: "space-between",
+  alignItems: "center",
+  fontSize: "15px",
 };
 
-const activePriorityStyle: React.CSSProperties = {
-  padding: "10px",
-  fontSize: "13px",
-  fontWeight: "600",
-  borderRadius: "10px",
-  border: "1px solid rgba(255,255,255,0.25)",
-  backgroundColor: "rgba(255,255,255,0.18)",
+const deltaStyle: React.CSSProperties = {
+  fontSize: "12px",
+  color: "rgba(255,255,255,0.9)",
+};
+
+const errorStyle: React.CSSProperties = {
   color: "#fff",
-  cursor: "pointer",
-  textAlign: "center",
-};
-
-const inactivePriorityStyle: React.CSSProperties = {
-  padding: "10px",
-  fontSize: "13px",
-  fontWeight: "500",
-  borderRadius: "10px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  backgroundColor: "transparent",
-  color: "rgba(230,247,255,0.95)",
-  cursor: "pointer",
-  textAlign: "center",
+  background: "rgba(0,0,0,0.25)",
+  padding: "8px",
+  borderRadius: 8,
+  fontSize: 13,
 };
 
 const submitButtonStyle: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-  color: "#1E90FF",
-  border: "none",
+  backgroundColor: "#22C6FF",
+  color: "#ffffff",
+  border: "1px solid rgba(255,255,255,0.45)",
   padding: "10px 14px",
-  borderRadius: "10px",
+  borderRadius: "999px",
   fontWeight: "700",
   fontSize: "15px",
   cursor: "pointer",
-  marginTop: "8px",
-  boxShadow: "0 6px 18px rgba(30,144,255,0.18)",
   width: "100%",
+};
+
+const spotsCardStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.14)",
+  borderRadius: "10px",
+  padding: "10px",
+};
+
+const spotsTitleStyle: React.CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 700,
+  marginBottom: "6px",
+};
+
+const spotsListStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  fontSize: "12px",
+};
+
+const spotItemStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+};
+
+const spotDotStyle: React.CSSProperties = {
+  width: "8px",
+  height: "8px",
+  borderRadius: "999px",
+  background: "#FFA500",
+  display: "inline-block",
+};
+
+const spotPlaceholderStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.8)",
 };

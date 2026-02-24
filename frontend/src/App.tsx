@@ -29,6 +29,5 @@ const overlayStyle: React.CSSProperties = {
   top: "24px",
   left: "24px",
   zIndex: 9999,
-  // Ensure overlay sits above map and receives pointer events
   pointerEvents: "auto",
 };
