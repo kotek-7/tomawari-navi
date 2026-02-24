@@ -1,4 +1,4 @@
-# tomawari-navi Docker雛形
+# tomawari-navi 
 
 `db` / `backend` / `frontend` を Docker Compose でまとめて起動する開発用雛形です。
 
