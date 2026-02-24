@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { detourRoute } from "../api";
+import { detourRoute, fetchRankingSuggestions, type RankingItem } from "../api";
 import type { RouteData } from "../types/route";
 
 function clamp(n: number, min: number, max: number): number {
@@ -24,6 +24,10 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
   const [targetMinutesText, setTargetMinutesText] = useState<string>("60");
   const [lastRoute, setLastRoute] = useState<RouteData | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("collapsed");
+  const [suggestions, setSuggestions] = useState<RankingItem[]>([]);
+  const [isDestinationFocused, setIsDestinationFocused] = useState(false);
+  const [isSuggestLoading, setIsSuggestLoading] = useState(false);
+  const rankingRequestSeqRef = useRef(0);
 
   const targetMinutes = useMemo(() => {
     const parsed = Number.parseInt(targetMinutesText, 10);
@@ -54,6 +58,48 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
     };
   }, [loading, panelMode]);
 
+  useEffect(() => {
+    if (panelMode === "collapsed") {
+      setIsDestinationFocused(false);
+    }
+  }, [panelMode]);
+
+  useEffect(() => {
+    if (!isDestinationFocused) {
+      setSuggestions([]);
+      return;
+    }
+    const keyword = destinationText.trim();
+    if (!keyword) {
+      setSuggestions([]);
+      return;
+    }
+
+    const seq = ++rankingRequestSeqRef.current;
+    const timer = window.setTimeout(async () => {
+      try {
+        setIsSuggestLoading(true);
+        const items = await fetchRankingSuggestions(keyword, 8);
+        if (rankingRequestSeqRef.current !== seq) return;
+        setSuggestions(items);
+      } catch {
+        if (rankingRequestSeqRef.current !== seq) return;
+        setSuggestions([]);
+      } finally {
+        if (rankingRequestSeqRef.current !== seq) return;
+        setIsSuggestLoading(false);
+      }
+    }, 220);
+
+    return () => window.clearTimeout(timer);
+  }, [destinationText, isDestinationFocused]);
+
+  function selectSuggestion(spotName: string) {
+    setDestinationText(spotName);
+    setSuggestions([]);
+    setIsDestinationFocused(false);
+  }
+
   async function handleSubmit() {
     try {
       const origin = originText.trim();
@@ -83,6 +129,7 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
       setLastRoute(resp);
       onSubmit?.(resp);
       onSearchSuccess?.();
+      setIsDestinationFocused(false);
       setPanelMode("collapsed");
     } catch (err) {
       console.error("route request failed", err);
@@ -106,7 +153,13 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
             <input
               value={destinationText}
               onChange={(e) => setDestinationText(e.target.value)}
-              onFocus={() => setPanelMode("basic")}
+              onFocus={() => {
+                setPanelMode("basic");
+                setIsDestinationFocused(true);
+              }}
+              onBlur={() => {
+                window.setTimeout(() => setIsDestinationFocused(false), 120);
+              }}
               type="text"
               placeholder="目的地を入力"
               className="w-full rounded-xl border-4 border-sky-500/90 bg-white py-2 pl-10 pr-28 text-base text-gray-800 shadow-[0_4px_14px_rgba(0,0,0,0.16)] outline-none placeholder:text-black/30"
@@ -126,6 +179,22 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
               <span>遠回り検索！</span>
               <span>▸</span>
             </div>
+            {isDestinationFocused && destinationText.trim() && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[10000] max-h-56 overflow-auto rounded-xl border border-sky-200 bg-white py-1 text-gray-800 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                {suggestions.map((item) => (
+                  <button
+                    key={`${item.spot_name}-${item.count}`}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectSuggestion(item.spot_name)}
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-sky-50"
+                  >
+                    <span>{item.spot_name}</span>
+                    <span className="text-xs text-gray-500">{item.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -172,15 +241,35 @@ export default function RouteForm({ onSubmit, onSearchStart, onSearchSuccess, on
             </div>
           </div>
           <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-            <div>
+            <div className="relative">
               <label className="mb-1 block text-xs font-bold tracking-[0.03em] text-sky-100">目的地</label>
               <input
                 value={destinationText}
                 onChange={(e) => setDestinationText(e.target.value)}
+                onFocus={() => setIsDestinationFocused(true)}
+                onBlur={() => {
+                  window.setTimeout(() => setIsDestinationFocused(false), 120);
+                }}
                 type="text"
                 placeholder="目的地を入力"
                 className="h-10 w-full rounded-xl border-none px-3 text-base text-gray-800 outline-none placeholder:text-black/30"
               />
+              {isDestinationFocused && destinationText.trim() && suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[10000] max-h-56 overflow-auto rounded-xl border border-sky-200 bg-white py-1 text-gray-800 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                  {suggestions.map((item) => (
+                    <button
+                      key={`${item.spot_name}-${item.count}`}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectSuggestion(item.spot_name)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-sky-50"
+                    >
+                      <span>{item.spot_name}</span>
+                      <span className="text-xs text-gray-500">{item.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold tracking-[0.03em] text-sky-100">時間</label>

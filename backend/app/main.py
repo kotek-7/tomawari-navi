@@ -23,6 +23,7 @@ from app.geocoding import resolve_route_points
 from app.history import append_route_history_async, create_route_history_entry
 from app.nearby_spots import select_nearby_spots
 from app.ors_client import request_ors_route_sync
+from app.ranking import router as ranking_router
 from app.via_selector import pick_via_spots
 
 app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
@@ -38,6 +39,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(ranking_router, prefix="/v1")
 
 
 def _db_dsn() -> str:

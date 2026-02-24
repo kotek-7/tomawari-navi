@@ -33,14 +33,20 @@ class RankingItem(BaseModel):
 
 class RankingResponse(BaseModel):
     area: str | None = None
+    q: str | None = None
     items: list[RankingItem]
 
 
 @router.get("/ranking", response_model=RankingResponse)
 async def get_ranking(
     area: str | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=100),
     limit: int = Query(default=10, ge=1, le=50),
 ) -> RankingResponse:
+    normalized_q = q.strip() if q is not None else None
+    if normalized_q == "":
+        normalized_q = None
+
     table_name = _history_table()
     conn = await asyncpg.connect(_db_dsn())
     try:
@@ -63,6 +69,14 @@ async def get_ranking(
                             NULLIF(payload->>'area', '')
                         ) = $1
                     )
+                    AND (
+                        $2::text IS NULL OR
+                        COALESCE(
+                            NULLIF(payload->'metadata'->>'spot_name', ''),
+                            NULLIF(payload->'response_summary'->>'spot_name', ''),
+                            NULLIF(payload->>'spot_name', '')
+                        ) ILIKE ('%' || $2 || '%')
+                    )
                     AND COALESCE(
                         NULLIF(payload->'metadata'->>'spot_name', ''),
                         NULLIF(payload->'response_summary'->>'spot_name', ''),
@@ -70,15 +84,16 @@ async def get_ranking(
                     ) IS NOT NULL
                 GROUP BY spot_name
                 ORDER BY count DESC, spot_name ASC
-                LIMIT $2
+                LIMIT $3
                 """,
                 area,
+                normalized_q,
                 limit,
             )
         except asyncpg.exceptions.UndefinedTableError:
-            return RankingResponse(area=area, items=[])
+            return RankingResponse(area=area, q=normalized_q, items=[])
 
         items = [RankingItem(spot_name=r["spot_name"], count=r["count"]) for r in rows]
-        return RankingResponse(area=area, items=items)
+        return RankingResponse(area=area, q=normalized_q, items=items)
     finally:
         await conn.close()

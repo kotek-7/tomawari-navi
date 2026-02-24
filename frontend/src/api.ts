@@ -8,6 +8,17 @@ import type { RouteData } from "./types/route";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+export type RankingItem = {
+  spot_name: string;
+  count: number;
+};
+
+type RankingResponse = {
+  area: string | null;
+  q: string | null;
+  items: RankingItem[];
+};
+
 // ヘルパー: AbortController を使ったタイムアウト付き fetch
 // - 目的: ネットワーク要求が長時間ブロックされるのを防ぎ、UI を応答可能に保つ。
 // - 使い方: fetchWithTimeout(url, options, timeoutMs)
@@ -96,4 +107,23 @@ export async function detourRoute(body: any, timeoutMs = 150000): Promise<RouteD
   }
 
   return data;
+}
+
+export async function fetchRankingSuggestions(q: string, limit = 8, timeoutMs = 4000): Promise<RankingItem[]> {
+  const keyword = q.trim();
+  if (!keyword) {
+    return [];
+  }
+
+  const url = new URL("/v1/ranking", API_BASE);
+  url.searchParams.set("q", keyword);
+  url.searchParams.set("limit", String(limit));
+
+  const res = await fetchWithTimeout(url.toString(), { method: "GET" }, timeoutMs);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Backend error ${res.status}: ${text}`);
+  }
+  const data = (await res.json()) as RankingResponse;
+  return data.items ?? [];
 }
