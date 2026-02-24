@@ -1,7 +1,7 @@
 export interface RouteData {
   status: "ok";
   route_id: string;
-  genre: "sightseeing";
+  genre: string;
   origin: { lat: number; lng: number; name?: string };
   destination: { lat: number; lng: number; name?: string };
   route: {

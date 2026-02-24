@@ -1,3 +1,5 @@
+import type { RouteData } from "./types/route";
+
 // 軽量なフロントエンド ⇄ バックエンド API クライアント
 // - フロントエンド担当者がバックエンド通信の挙動を理解・保守しやすいよう、
 //   関数ごとに詳細な日本語コメントを付けています。
@@ -45,7 +47,7 @@ export async function healthCheck(timeoutMs = 2000): Promise<boolean> {
 //   - JSON 解析エラー -> 例外を投げる
 // - 呼び出し側は try/catch で例外を受け、必要に応じてモック表示やユーザー向けエラーメッセージを実装する。
 // - timeoutMs の既定は 15000ms にしているが、処理時間に合わせて引数で調整すること。
-export async function detourRoute(body: any, timeoutMs = 15000): Promise<RouteData> {
+export async function detourRoute(body: any, timeoutMs = 150000): Promise<RouteData> {
   // 送信する JSON をブラウザのコンソールに出力します。
   // - 開発中に "どんな JSON を backend に送っているか" を素早く確認できるようにする目的です。
   // - 本番環境でログを抑制したい場合は環境変数を参照して条件付きで出力する実装に変えてください。
@@ -95,4 +97,3 @@ export async function detourRoute(body: any, timeoutMs = 15000): Promise<RouteDa
 
   return data;
 }
-import type { RouteData } from "./types/route";

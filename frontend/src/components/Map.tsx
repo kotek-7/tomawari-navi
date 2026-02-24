@@ -23,7 +23,7 @@ function makeLabeledIcon(label?: string, color = '#4CD964', size = 18) {
 
 export default function Map({ routeData }: { routeData: RouteData | null }) {
   const routePath: [number, number][] =
-    routeData?.route?.geojson?.coordinates?.map(([lng, lat]) => [lat, lng]) ?? [];
+    routeData?.route.geojson.coordinates.map(([lng, lat]) => [lat, lng]) ?? [];
 
   return (
     <MapContainer center={[35.0394, 135.7292]} zoom={14} style={{ width: "100%", height: "100%" }}>

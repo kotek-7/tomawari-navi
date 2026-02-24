@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { MOCK_ROUTE_DATA } from "../testData";
 import { detourRoute } from "../api";
 import type { RouteData } from "../types/route";
 
@@ -14,6 +13,7 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
   // - 将来的にジオコーディングをフロントエンドで行う場合は、ここで経度緯度を保持する形に変更してください。
   const [originText, setOriginText] = useState<string>("");
   const [destinationText, setDestinationText] = useState<string>("");
+  const [targetValue, setTargetValue] = useState<string>("");
 
   return (
     <div style={containerStyle}>
@@ -32,7 +32,7 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
 
       {/* 目標設定の切り替え */}
       <div style={inputGroupStyle}>
-        <label style={labelStyle}>標設定</label>
+        <label style={labelStyle}>目標設定</label>
         <div style={segmentContainerStyle}>
           <button 
             onClick={() => setTargetType("time")}
@@ -53,6 +53,8 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
       <div style={{ display: "flex", alignItems: "baseline", gap: "12px", padding: "8px 0" }}>
         <input 
           type="number" 
+          value={targetValue}
+          onChange={(e) => setTargetValue(e.target.value)}
           placeholder={targetType === "time" ? "60" : "300"} 
           style={numberInputStyle} 
         />
@@ -83,35 +85,29 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
       {errorMessage && <div style={{color:'#fff',background:'rgba(0,0,0,0.25)',padding:'8px',borderRadius:8,fontSize:13}}>{errorMessage}</div>}
       <button onClick={async () => {
         try {
+          const origin = originText.trim();
+          const destination = destinationText.trim();
+          if (!origin || !destination) {
+            setErrorMessage("出発地と目的地を入力してください。");
+            return;
+          }
+
           setLoading(true);
           setErrorMessage("");
-          // ヘルスチェックを行わず、直接リクエストを送信します（開発リクエストの要望に合わせた挙動）。
-          // 長時間待たせずに確実に送信したい場合はここでタイムアウトや再試行の設計を追加してください。
+          const parsedTarget = Number.parseInt(targetValue, 10);
+          const targetMinutes =
+            targetType === "time" && Number.isFinite(parsedTarget) ? parsedTarget : null;
 
-
-          // リクエストボディを組み立てます（現状は docs 由来の MOCK_ROUTE_DATA を使用した簡易版です）。
-          // 将来的には以下のフィールドをユーザー入力から組み立てる想定です:
-          // - origin: { lat, lng }
-          // - destination: { lat, lng }
-          // - genre: string (例: "sightseeing")
-          // - start_time_iso: ISO フォーマットの開始時刻文字列または null
-          // - weight_kg: 数値（消費カロリー算出用）
-          // API の型（backend の RouteRequest）に合わせてフィールドを揃えてください。
-          // リクエストボディを組み立てます（地名を送信する仕様に変更）
-          // - origin と destination は { name: string } の形式で送信します。
-          // - バックエンド側で地名を受け取りジオコーディングする実装が必要になる点に注意してください。
-          // 送信前の処理：モック座標を固定で送る仕様のため、入力テキストをジオコーディングしない。
-          // 設定されたモック座標を常に送信する（入力に関係なく固定の座標を使う仕様）
           const body = {
-            origin: { lat: MOCK_ROUTE_DATA.origin.lat, lng: MOCK_ROUTE_DATA.origin.lng, name: originText || MOCK_ROUTE_DATA.origin.name },
-            destination: { lat: MOCK_ROUTE_DATA.destination.lat, lng: MOCK_ROUTE_DATA.destination.lng, name: destinationText || MOCK_ROUTE_DATA.destination.name },
+            origin_text: origin,
+            destination_text: destination,
             genre: "sightseeing",
             start_time_iso: null,
+            target_minutes: targetMinutes,
             weight_kg: 60.0,
           };
 
-          // UI 層で送信前の内容を出力（必ず表示されるように console.log を使用）
-          console.log('[UI] Sending detour request body (mock coords):', body);
+          console.log('[UI] Sending detour request body:', body);
 
           // 中央化した API クライアント detourRoute を使ってリクエストを送信します。
           // レスポンスはそのままコンソールに出力しておきます（デバッグ目的）。
