@@ -1,7 +1,7 @@
 # Railway デプロイ手順
 
-このリポジトリは `backend` と `frontend` を Railway で別サービスとしてデプロイできます。  
-DB は Railway の PostgreSQL サービスを使います。
+このリポジトリは `backend` と `frontend` を Railway で別サービスとしてデプロイし、  
+`proxy` サービスで同一オリジン化できます。DB は Railway の PostgreSQL サービスを使います。
 
 ## 事前準備
 - Railway プロジェクトを作成
@@ -47,14 +47,27 @@ DB は Railway の PostgreSQL サービスを使います。
    - `Root Directory`: `frontend`
    - `Dockerfile Path`: `Dockerfile.railway`
 3. frontend サービスの `Variables` に以下を設定
-   - `VITE_API_BASE_URL=https://<backend-public-domain>`
+   - `VITE_API_BASE_URL=/api`
 4. Deploy して frontend の公開 URL へアクセス
 
-## 4. CORS
-現状 backend は `allow_origins=["*"]` なので追加設定なしで動作します。  
-本番で絞る場合は backend 側で許可オリジンを frontend ドメインに限定してください。
+## 4. proxy サービス（同一オリジン化）
+1. `New` -> `GitHub Repo` で同じリポジトリを再度選択
+2. proxy サービスの `Settings` で以下を設定
+   - `Root Directory`: `proxy`
+   - `Dockerfile Path`: `Dockerfile.railway`
+3. proxy サービスの `Variables` に以下を設定
+   - `FRONTEND_UPSTREAM=https://<frontend-public-domain>`
+   - `BACKEND_UPSTREAM=https://<backend-public-domain>`
+4. proxy の公開 URL を最終的なアプリURLとして利用
+   - `https://<proxy-domain>/` -> frontend
+   - `https://<proxy-domain>/api/...` -> backend
 
-## 5. 注意点
+## 5. CORS
+同一オリジン化後は CORS 依存を減らせます。  
+現状 backend は `allow_origins=["*"]` ですが、本番では proxy ドメインへ制限する運用を推奨します。
+
+## 6. 注意点
 - `backend/Dockerfile.railway` は `--reload` を使わない本番向け設定です。
 - `frontend/Dockerfile.railway` は `pnpm build` 後に `pnpm preview` で配信します。
 - Railway は実行時ポートを `PORT` で注入するため、Dockerfile 側で `${PORT:-...}` を使っています。
+- `proxy` は Caddy で `/api/*` を backend へ、その他を frontend へ転送します。

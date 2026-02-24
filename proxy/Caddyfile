@@ -1,0 +1,17 @@
+{
+	auto_https off
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	@api path /api/*
+	handle @api {
+		uri strip_prefix /api
+		reverse_proxy {$BACKEND_UPSTREAM}
+	}
+
+	handle {
+		reverse_proxy {$FRONTEND_UPSTREAM}
+	}
+}

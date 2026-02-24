@@ -117,6 +117,7 @@ docker compose up --build
 - Railway 用 Dockerfile:
   - backend: `backend/Dockerfile.railway`
   - frontend: `frontend/Dockerfile.railway`
+  - proxy: `proxy/Dockerfile.railway`
 
 ## 停止
 ```bash
