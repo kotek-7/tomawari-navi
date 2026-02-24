@@ -1,40 +1,40 @@
 {
   "status": "ok",
-  "route_id": "route_a1b2c3d4e5f6",
+  "route_id": "kyoto_detour_0001",
   "genre": "sightseeing",
-  "origin": { "lat": 35.0037, "lng": 135.7681 },
-  "destination": { "lat": 34.9858, "lng": 135.7588 },
+  "origin": { "lat": 35.0037, "lng": 135.7681, "name": "出発地点" },
+  "destination": { "lat": 34.9858, "lng": 135.7588, "name": "目的地点" },
   "route": {
-    "polyline": {
-      "format": "latlng_array",
-      "points": [
-        { "lat": 35.0037, "lng": 135.7681 },
-        { "lat": 35.0043, "lng": 135.7646 },
-        { "lat": 35.0029, "lng": 135.7650 },
-        { "lat": 34.9858, "lng": 135.7588 }
+    "geojson": {
+      "type": "LineString",
+      "coordinates": [
+        [135.7681, 35.0037],
+        [135.7702, 35.0042],
+        [135.7650, 35.0029],
+        [135.7588, 34.9858]
       ]
     }
   },
   "summary": {
     "distance_m": 3200,
     "duration_s": 2400,
-    "eta_iso": "2026-02-24T15:40:00+09:00",
+    "eta_iso": "2026-02-23T15:40:00+09:00",
     "calories_kcal": 173
   },
   "via_spots": [
     {
       "lat": 35.0043,
       "lng": 135.7646,
-      "name": "Nishiki Market",
+      "name": "錦市場",
       "type": "market",
-      "description": "A popular food street in central Kyoto."
+      "description": "京の台所。食べ歩きが楽しい通りです。"
     },
     {
       "lat": 35.0070,
       "lng": 135.7619,
-      "name": "Rokkaku-do",
+      "name": "六角堂",
       "type": "temple",
-      "description": "A historic temple in downtown Kyoto."
+      "description": "街中にある小さなお寺。静かで落ち着きます。"
     }
   ]
 }

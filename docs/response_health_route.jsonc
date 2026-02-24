@@ -1,33 +1,25 @@
 {
   "status": "ok",
-  "route_id": "route_c9f9592db009",
+  "route_id": "kyoto_health_0001",
   "genre": "health",
-  "origin": {
-    "lat": 35.0037,
-    "lng": 135.7681,
-  },
-  "destination": {
-    "lat": 34.9858,
-    "lng": 135.7588,
-  },
+  "origin": { "lat": 35.0037, "lng": 135.7681, "name": "出発地点" },
+  "destination": { "lat": 34.9858, "lng": 135.7588, "name": "目的地点" },
   "route": {
-    "polyline": {
-      "format": "latlng_array",
-      "points": [
-        { "lat": 35.0037, "lng": 135.7681 },
-        { "lat": 35.0043, "lng": 135.7646 },
-        { "lat": 35.0104, "lng": 135.7539 },
-        { "lat": 34.9858, "lng": 135.7588 },
-      ],
-    },
+    "geojson": {
+      "type": "LineString",
+      "coordinates": [
+        [135.7681, 35.0037],
+        [135.7702, 35.0042],
+        [135.7650, 35.0029],
+        [135.7588, 34.9858]
+      ]
+    }
   },
   "summary": {
     "distance_m": 4319,
     "duration_s": 3239,
     "eta_iso": "2026-02-24T20:53:59+09:00",
-    "calories_kcal": 233,
-    "target_calories_kcal": null,
-    "target_calories_achieved": null,
+    "calories_kcal": 233
   },
   "via_spots": [
     {
@@ -35,14 +27,14 @@
       "lng": 135.7646,
       "name": "錦市場",
       "type": "market",
-      "description": "京の台所。食べ歩きが楽しい通りです。",
+      "description": "京の台所。食べ歩きが楽しい通りです。"
     },
     {
       "lat": 35.0104,
       "lng": 135.7539,
       "name": "二条城",
       "type": "castle",
-      "description": "歴史を感じる城郭。周辺の落ち着いた道も魅力です。",
-    },
-  ],
+      "description": "歴史を感じる城郭。周辺の落ち着いた道も魅力です。"
+    }
+  ]
 }

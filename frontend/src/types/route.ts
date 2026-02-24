@@ -1,14 +1,20 @@
-// src/types/route.ts
 export interface RouteData {
+  status: "ok";
+  route_id: string;
+  genre: "sightseeing";
   origin: { lat: number; lng: number; name?: string };
   destination: { lat: number; lng: number; name?: string };
-  via_spots: Array<{ lat: number; lng: number; name?: string }>;
+  route: {
+    geojson: {
+      type: "LineString";
+      coordinates: Array<[number, number]>; // [lng, lat]
+    };
+  };
   summary: {
-    total_distance_km: number;
-    total_duration_min: number;
+    distance_m: number;
+    duration_s: number;
+    eta_iso: string;
     calories_kcal: number;
   };
-  health_metrics: {
-    estimated_steps: number;
-  };
+  via_spots: Array<{ lat: number; lng: number; name?: string; type?: string; description?: string }>;
 }

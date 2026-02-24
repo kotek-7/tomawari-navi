@@ -21,7 +21,10 @@ app = FastAPI(title=os.getenv("APP_NAME", "tomawari-backend"))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    # 開発環境で frontend が異なるホストやポートからアクセスする際の CORS エラーを防ぐため
+    # 一旦すべてのオリジンを許可する設定に変更しました。
+    # 本番では安全なオリジンに限定してください（例: ['https://example.com']）。
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,9 +85,13 @@ class RouteRequest(BaseModel):
     weight_kg: float = Field(default=60.0, ge=30.0, le=150.0)
 
 
-class Polyline(BaseModel):
-    format: Literal["latlng_array"] = "latlng_array"
-    points: list[LatLng]
+class GeoJSONLineString(BaseModel):
+    type: Literal["LineString"] = "LineString"
+    coordinates: list[list[float]]
+
+
+class RouteGeometry(BaseModel):
+    geojson: GeoJSONLineString
 
 
 class ViaSpot(BaseModel):
@@ -108,7 +115,7 @@ class RouteResponse(BaseModel):
     genre: Literal["sightseeing"]
     origin: LatLng
     destination: LatLng
-    route: dict
+    route: RouteGeometry
     summary: Summary
     via_spots: list[ViaSpot]
 
@@ -488,7 +495,7 @@ async def _resolve_route_points(req: RouteRequest) -> tuple[LatLng, LatLng]:
     return origin, destination
 
 
-def _request_ors_route_sync(req: RouteRequest, vias: list[ViaSpot]) -> tuple[list[LatLng], float, int]:
+def _request_ors_route_sync(req: RouteRequest, vias: list[ViaSpot]) -> tuple[GeoJSONLineString, float, int]:
     api_key = os.getenv("OPENROUTESERVICE_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("OPENROUTESERVICE_API_KEY is not set")
@@ -525,15 +532,19 @@ def _request_ors_route_sync(req: RouteRequest, vias: list[ViaSpot]) -> tuple[lis
     try:
         data = json.loads(raw)
         feature = data["features"][0]
-        geometry = feature["geometry"]["coordinates"]
+        geometry = feature["geometry"]
         summary = feature["properties"]["summary"]
         distance_m = float(summary["distance"])
         duration_s = int(round(float(summary["duration"])))
     except (KeyError, IndexError, TypeError, ValueError) as e:
         raise RuntimeError("openrouteservice response format is invalid") from e
 
-    points = [LatLng(lat=float(lat), lng=float(lng)) for lng, lat in geometry]
-    return points, distance_m, duration_s
+    try:
+        geojson = GeoJSONLineString.model_validate(geometry)
+    except Exception as e:
+        raise RuntimeError("openrouteservice geometry is invalid") from e
+
+    return geojson, distance_m, duration_s
 
 
 @app.post("/v1/routes:detour", response_model=RouteResponse)
@@ -549,7 +560,7 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
     vias = _pick_via_spots(resolved_req, max_spots=5)
 
     try:
-        poly_points, dist, duration_s = await asyncio.to_thread(_request_ors_route_sync, resolved_req, vias)
+        route_geojson, dist, duration_s = await asyncio.to_thread(_request_ors_route_sync, resolved_req, vias)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
@@ -563,7 +574,7 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         genre="sightseeing",
         origin=origin,
         destination=destination,
-        route={"polyline": Polyline(points=poly_points).model_dump()},
+        route=RouteGeometry(geojson=route_geojson),
         summary=Summary(
             distance_m=int(round(dist)),
             duration_s=duration_s,
@@ -572,7 +583,5 @@ async def detour_route(req: RouteRequest) -> RouteResponse:
         ),
         via_spots=vias,
     )
-
-
 
 
