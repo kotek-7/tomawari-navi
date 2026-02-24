@@ -9,8 +9,8 @@ function clamp(n: number, min: number, max: number): number {
 export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) => void }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [originText, setOriginText] = useState<string>("");
-  const [destinationText, setDestinationText] = useState<string>("");
+  const [originText, setOriginText] = useState<string>("同志社大学");
+  const [destinationText, setDestinationText] = useState<string>("京都市役所");
   const [targetMinutesText, setTargetMinutesText] = useState<string>("60");
   const [lastRoute, setLastRoute] = useState<RouteData | null>(null);
 
@@ -63,285 +63,115 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) =
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={sectionStyle}>
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>出発地</label>
+    <div className="flex w-80 flex-col gap-3 rounded-xl bg-sky-500 p-4 text-white shadow-[0_8px_20px_rgba(0,0,0,0.16)]">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col">
+          <label className="mb-2 text-xs font-bold tracking-[0.03em] text-sky-100">出発地</label>
           <input
             value={originText}
             onChange={(e) => setOriginText(e.target.value)}
             type="text"
-            placeholder="現在地、または駅名"
-            style={inputStyle}
+            placeholder="例: 同志社大学"
+            className="rounded-lg border-none px-3 py-1.5 text-lg text-gray-800 outline-none placeholder:text-black/20 shadow-inner"
           />
         </div>
 
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>目的地</label>
+        <div className="flex flex-col">
+          <label className="mb-2 text-xs font-bold tracking-[0.03em] text-sky-100">目的地</label>
           <input
             value={destinationText}
             onChange={(e) => setDestinationText(e.target.value)}
             type="text"
             placeholder="目的地を入力"
-            style={inputStyle}
+            className="rounded-lg border-none px-3 py-1.5 text-lg text-gray-800 outline-none placeholder:text-black/20 shadow-inner"
           />
         </div>
       </div>
 
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>遠回りルート</label>
-        <div style={segmentContainerStyle}>
-          <button type="button" style={activeSegmentStyle}>
+      <div className="flex flex-col">
+        <label className="mb-2 text-xs font-bold tracking-[0.03em] text-sky-100">遠回りルート</label>
+        <div className="flex gap-1.5 rounded-[10px] border-white border p-1.5">
+          <button type="button" className="flex-1 cursor-default rounded-lg bg-white/25 px-2 py-1 text-sm font-bold">
             観光
           </button>
-          <button type="button" disabled style={disabledSegmentStyle}>
+          <button
+            type="button"
+            disabled
+            className="flex-1 cursor-not-allowed rounded-lg bg-black/15 px-2 py-1 text-sm font-semibold text-sky-100/60"
+          >
             健康
           </button>
         </div>
       </div>
 
-      <div style={inlineGridStyle}>
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>時間</label>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-            <input
-              type="number"
-              min={10}
-              max={240}
-              value={targetMinutesText}
-              onChange={(e) => setTargetMinutesText(e.target.value)}
-              style={numberInputStyle}
-            />
-            <span style={unitStyle}>分</span>
-          </div>
-        </div>
-
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>カテゴリ</label>
-          <select value="none" disabled style={disabledSelectStyle}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col w-fit">
+          <label className="mb-2 text-xs font-bold tracking-[0.03em] text-sky-100">カテゴリ</label>
+          <select
+            value="none"
+            disabled
+            className="bg-transparent cursor-not-allowed rounded-lg text-sm border border-white px-2 py-1 text-white/80 outline-none"
+          >
             <option value="none">指定なし</option>
             <option value="temple">神社・寺</option>
             <option value="local">ローカルなお店</option>
             <option value="nature">自然</option>
           </select>
         </div>
+
+        <div className="flex flex-col">
+          <label className="mb-2 text-xs font-bold tracking-[0.03em] text-sky-100 shadow-inner">時間</label>
+          <div className="flex items-baseline gap-2">
+            <div>
+              <input
+                type="number"
+                min={10}
+                max={240}
+                value={targetMinutesText}
+                onChange={(e) => setTargetMinutesText(e.target.value)}
+                className="rounded-lg border-none bg-white px-4 py-2 text-4xl font-bold text-gray-800 max-w-28 outline-none"
+              />
+            </div>
+            <div className="text-sm font-bold text-sky-100">分</div>
+          </div>
+        </div>
+
       </div>
 
-      <div style={metricsCardStyle}>
-        <div style={metricRowStyle}>
+      <div className="flex flex-col gap-0.5 rounded-[10px] border-white border p-2.5">
+        <div className="flex items-center justify-between text-xs">
           <span>推定歩数</span>
           <strong>{mockMetrics.steps.toLocaleString()} 歩</strong>
         </div>
-        <div style={metricRowStyle}>
+        <div className="flex items-center justify-between text-xs">
           <span>消費カロリー</span>
           <strong>{mockMetrics.calories} cal</strong>
         </div>
-        <div style={deltaStyle}>最短距離より +{mockMetrics.detourDeltaM} m（モック）</div>
+        <div className="text-xs text-white/90">最短距離より +{mockMetrics.detourDeltaM} m（モック）</div>
       </div>
 
-      {errorMessage && <div style={errorStyle}>{errorMessage}</div>}
+      {errorMessage && <div className="rounded-lg bg-black/25 p-2 text-[13px] text-white">{errorMessage}</div>}
 
-      <button onClick={handleSubmit} disabled={loading} style={submitButtonStyle}>
+      <button
+        onClick={handleSubmit}
+        disabled={loading}
+        className="w-full rounded-full border border-white/45 bg-orange-400 px-3.5 py-2 text-xl font-bold text-white disabled:cursor-not-allowed disabled:opacity-70"
+      >
         {loading ? "生成中..." : "検索"}
       </button>
 
-      <div style={spotsCardStyle}>
-        <div style={spotsTitleStyle}>スポット</div>
-        <div style={spotsListStyle}>
+      <div className="rounded-[10px] bg-white/15 p-2.5">
+        <div className="text-xs font-bold">スポット</div>
+        <div className="mt-2 flex max-h-52 flex-col gap-2 overflow-auto pr-1 text-sm">
           {[...(lastRoute?.via_spots ?? []), ...(lastRoute?.along_route_spots ?? [])].map((s, i) => (
-            <div key={`${s.name ?? "spot"}-${i}`} style={spotItemStyle}>
-              <span style={spotDotStyle} />
+            <div key={`${s.name ?? "spot"}-${i}`} className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-200" />
               <span>{s.name ?? "スポット"}</span>
             </div>
           ))}
-          {!lastRoute && <div style={spotPlaceholderStyle}>まだ検索していません</div>}
+          {!lastRoute && <div className="text-white/80">まだ検索していません</div>}
         </div>
       </div>
     </div>
   );
 }
-
-const containerStyle: React.CSSProperties = {
-  width: "320px",
-  backgroundColor: "#1E90FF",
-  padding: "18px 16px",
-  borderRadius: "12px",
-  boxShadow: "0 8px 20px rgba(0,0,0,0.16)",
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px",
-  color: "#ffffff",
-};
-
-const sectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px",
-};
-
-const inlineGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "12px",
-  fontWeight: "700",
-  color: "#E6F7FF",
-  letterSpacing: "0.03em",
-  marginBottom: "8px",
-};
-
-const inputGroupStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-};
-
-const inputStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.22)",
-  border: "none",
-  padding: "10px 12px",
-  fontSize: "14px",
-  color: "#ffffff",
-  borderRadius: "8px",
-  outline: "none",
-};
-
-const numberInputStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.22)",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontSize: "20px",
-  fontWeight: "700",
-  width: "84px",
-  outline: "none",
-  color: "#ffffff",
-};
-
-const unitStyle: React.CSSProperties = {
-  fontSize: "14px",
-  fontWeight: "700",
-  color: "#E6F7FF",
-};
-
-const segmentContainerStyle: React.CSSProperties = {
-  display: "flex",
-  backgroundColor: "rgba(255,255,255,0.12)",
-  padding: "6px",
-  borderRadius: "10px",
-  gap: "6px",
-};
-
-const activeSegmentStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "8px",
-  fontSize: "13px",
-  fontWeight: "700",
-  borderRadius: "8px",
-  border: "none",
-  backgroundColor: "rgba(255,255,255,0.25)",
-  color: "#fff",
-  cursor: "default",
-};
-
-const disabledSegmentStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "8px",
-  fontSize: "13px",
-  fontWeight: "600",
-  borderRadius: "8px",
-  border: "none",
-  backgroundColor: "rgba(0,0,0,0.12)",
-  color: "rgba(230,247,255,0.55)",
-  cursor: "not-allowed",
-};
-
-const disabledSelectStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.22)",
-  border: "none",
-  padding: "10px 10px",
-  borderRadius: "8px",
-  color: "rgba(255,255,255,0.7)",
-  cursor: "not-allowed",
-};
-
-const metricsCardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.14)",
-  borderRadius: "10px",
-  padding: "10px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-};
-
-const metricRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  fontSize: "15px",
-};
-
-const deltaStyle: React.CSSProperties = {
-  fontSize: "12px",
-  color: "rgba(255,255,255,0.9)",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "#fff",
-  background: "rgba(0,0,0,0.25)",
-  padding: "8px",
-  borderRadius: 8,
-  fontSize: 13,
-};
-
-const submitButtonStyle: React.CSSProperties = {
-  backgroundColor: "#22C6FF",
-  color: "#ffffff",
-  border: "1px solid rgba(255,255,255,0.45)",
-  padding: "10px 14px",
-  borderRadius: "999px",
-  fontWeight: "700",
-  fontSize: "15px",
-  cursor: "pointer",
-  width: "100%",
-};
-
-const spotsCardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.14)",
-  borderRadius: "10px",
-  padding: "10px",
-};
-
-const spotsTitleStyle: React.CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 700,
-  marginBottom: "6px",
-};
-
-const spotsListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "4px",
-  fontSize: "12px",
-};
-
-const spotItemStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "6px",
-};
-
-const spotDotStyle: React.CSSProperties = {
-  width: "8px",
-  height: "8px",
-  borderRadius: "999px",
-  background: "#FFA500",
-  display: "inline-block",
-};
-
-const spotPlaceholderStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.8)",
-};

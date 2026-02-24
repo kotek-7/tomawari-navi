@@ -7,27 +7,11 @@ export default function App() {
   const [routeData, setRouteData] = useState<RouteData | null>(null);
 
   return (
-    <main style={mainStyle}>
+    <main className="relative h-screen w-screen overflow-hidden font-sans">
       <Map routeData={routeData} />
-      <div style={overlayStyle}>
+      <div className="pointer-events-auto absolute left-6 top-6 z-[9999]">
         <RouteForm onSubmit={(data: RouteData) => setRouteData(data)} />
       </div>
     </main>
   );
 }
-
-const mainStyle: React.CSSProperties = {
-  position: "relative",
-  width: "100vw",
-  height: "100vh",
-  overflow: "hidden",
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-};
-
-const overlayStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "24px",
-  left: "24px",
-  zIndex: 9999,
-  pointerEvents: "auto",
-};
