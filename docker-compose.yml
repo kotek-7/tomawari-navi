@@ -40,6 +40,8 @@ services:
       - .env
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "100"
     depends_on:
       - backend
     ports:
