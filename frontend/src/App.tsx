@@ -10,7 +10,7 @@ export default function App() {
     <main style={mainStyle}>
       <Map routeData={routeData} />
       <div style={overlayStyle}>
-        <RouteForm onSubmit={(data: any) => setRouteData(data)} />
+        <RouteForm onSubmit={(data: RouteData) => setRouteData(data)} />
       </div>
     </main>
   );

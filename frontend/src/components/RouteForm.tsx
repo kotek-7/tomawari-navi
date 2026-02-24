@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { MOCK_ROUTE_DATA } from "../testData";
 import { detourRoute } from "../api";
+import type { RouteData } from "../types/route";
 
 
-export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
+export default function RouteForm({ onSubmit }: { onSubmit?: (data: RouteData) => void }) {
   const [targetType, setTargetType] = useState<"time" | "calories">("time");
   const [priority, setPriority] = useState<"health" | "sightseeing">("health");
   const [loading, setLoading] = useState(false);
@@ -13,8 +14,6 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
   // - 将来的にジオコーディングをフロントエンドで行う場合は、ここで経度緯度を保持する形に変更してください。
   const [originText, setOriginText] = useState<string>("");
   const [destinationText, setDestinationText] = useState<string>("");
-
-  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8000";
 
   return (
     <div style={containerStyle}>
@@ -120,7 +119,7 @@ export default function RouteForm({ onSubmit }: { onSubmit?: (data: any) => void
             const resp = await detourRoute(body);
             console.log('[UI] detour response (raw):', resp);
             // 親コンポーネントへは API レスポンスをそのまま渡す
-            onSubmit?.(resp);
+            onSubmit?.(resp as RouteData);
           } catch (e) {
             // detourRoute は既に内部で詳細ログを出すためここでは軽く扱う
             console.error('[UI] detour request failed', e);

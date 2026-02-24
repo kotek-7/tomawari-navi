@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Polyline, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { RouteData } from "../types/route";
@@ -22,31 +22,8 @@ function makeLabeledIcon(label?: string, color = '#4CD964', size = 18) {
 }
 
 export default function Map({ routeData }: { routeData: RouteData | null }) {
-  const [routePath, setRoutePath] = useState<[number, number][]>([]);
-
-  useEffect(() => {
-    if (!routeData) return;
-
-    // 経由地をOSRMのクエリ形式に変換 (lng,lat;lng,lat...)
-    // routeData.via_spots が undefined の可能性があるため安全に扱います。
-    const viaSpots = routeData.via_spots ?? [];
-    const points = [
-      routeData.origin,
-      ...viaSpots,
-      routeData.destination
-    ].map(p => `${p.lng},${p.lat}`).join(";");
-
-    // OSRM API で歩行ルートを取得
-    fetch(`https://router.project-osrm.org/route/v1/walking/${points}?overview=full&geometries=geojson`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.routes && data.routes[0]) {
-          const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
-          setRoutePath(coords);
-        }
-      })
-      .catch(err => console.error("Routing error:", err));
-  }, [routeData]);
+  const routePath: [number, number][] =
+    routeData?.route?.geojson?.coordinates?.map(([lng, lat]) => [lat, lng]) ?? [];
 
   return (
     <MapContainer center={[35.0394, 135.7292]} zoom={14} style={{ width: "100%", height: "100%" }}>
