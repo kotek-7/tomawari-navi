@@ -42,7 +42,6 @@ uv --version
 ```
 
 #### トラブルシューティング
-````markdown
 ##### 1. 権限不足（管理者権限が暗黙に必要）
 **症状**
 * `Installer failed with exit code`
