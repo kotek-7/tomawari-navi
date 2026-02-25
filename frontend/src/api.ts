@@ -42,7 +42,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 // - ネットワークエラーやタイムアウトは false として扱い、例外は呼び出し元へ伝播させない。
 export async function healthCheck(timeoutMs = 2000): Promise<boolean> {
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, timeoutMs);
+    const res = await fetchWithTimeout(buildApiUrl("/health"), { method: "GET" }, timeoutMs);
     return res.ok;
   } catch (e) {
     // ネットワークエラー・タイムアウトは "サービス不可" と見なす（UI はフォールバックする）
@@ -79,7 +79,7 @@ export async function detourRoute(body: any, timeoutMs = 150000): Promise<RouteD
   }
 
   const res = await fetchWithTimeout(
-    (new URL("/v1/routes:detour", API_BASE)).toString(),
+    buildApiUrl("/v1/routes:detour"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -115,15 +115,23 @@ export async function fetchRankingSuggestions(q: string, limit = 8, timeoutMs = 
     return [];
   }
 
-  const url = new URL("/v1/ranking", API_BASE);
-  url.searchParams.set("q", keyword);
-  url.searchParams.set("limit", String(limit));
+  const endpoint = buildApiUrl("/v1/ranking");
+  const params = new URLSearchParams({ q: keyword, limit: String(limit) });
+  const url = `${endpoint}${endpoint.includes("?") ? "&" : "?"}${params.toString()}`;
 
-  const res = await fetchWithTimeout(url.toString(), { method: "GET" }, timeoutMs);
+  const res = await fetchWithTimeout(url, { method: "GET" }, timeoutMs);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Backend error ${res.status}: ${text}`);
   }
   const data = (await res.json()) as RankingResponse;
   return data.items ?? [];
+}
+function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (API_BASE.startsWith("http://") || API_BASE.startsWith("https://")) {
+    return new URL(normalizedPath, API_BASE).toString();
+  }
+  const base = API_BASE.startsWith("/") ? API_BASE : `/${API_BASE}`;
+  return `${base.replace(/\/+$/, "")}${normalizedPath}`;
 }

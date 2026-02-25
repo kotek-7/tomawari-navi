@@ -122,14 +122,15 @@ function makeDotIcon(color = "#FFA500", size = 12) {
   });
 }
 
-function makeWaypointDetailIcon(name?: string, type?: string, description?: string) {
+function makeWaypointDetailIcon(lat: number, lng: number, name?: string, type?: string, description?: string) {
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   const safeName = escapeHtml((name || "スポット").trim());
   const safeType = escapeHtml(spotTypeJa(type));
   const descText = (description || "").trim();
   const safeDesc = escapeHtml(descText.length > 36 ? `${descText.slice(0, 36)}...` : descText || "詳細情報なし");
   return L.divIcon({
     html: `
-      <div style="display:flex;align-items:flex-start;gap:8px;white-space:nowrap;">
+      <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:flex-start;gap:8px;white-space:nowrap;text-decoration:none;color:inherit;">
         <div style="margin-top:2px;width:12px;height:12px;border-radius:999px;background:#f59e0b;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.28);"></div>
         <div style="display:flex;flex-direction:column;gap:3px;max-width:230px;padding:6px 8px;border-radius:12px;background:#fff;border:2px solid #f59e0b;box-shadow:0 3px 8px rgba(0,0,0,0.16);line-height:1.2;">
           <div style="display:flex;align-items:center;gap:6px;">
@@ -137,8 +138,9 @@ function makeWaypointDetailIcon(name?: string, type?: string, description?: stri
             <span style="font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;padding:1px 6px;border-radius:999px;">${safeType}</span>
           </div>
           <div style="font-size:10px;color:#444;max-width:210px;overflow:hidden;text-overflow:ellipsis;">${safeDesc}</div>
+          <div style="margin-top:2px;align-self:flex-end;font-size:9px;font-weight:700;color:#1d4ed8;">Google Mapで開く</div>
         </div>
-      </div>
+      </a>
     `,
     className: "",
     iconSize: [260, 58],
@@ -257,12 +259,12 @@ export default function Map({
 
   const waypointIconMode = zoom >= 17 ? "detail" : zoom >= 16 ? "name" : "dot";
 
-  function waypointIcon(spot: { name?: string; type?: string; description?: string }) {
+  function waypointIcon(spot: { lat: number; lng: number; name?: string; type?: string; description?: string }) {
     if (waypointIconMode === "dot") {
       return makeDotIcon("#FFA500", 12);
     }
     if (waypointIconMode === "detail") {
-      return makeWaypointDetailIcon(spot.name, spot.type, spot.description);
+      return makeWaypointDetailIcon(spot.lat, spot.lng, spot.name, spot.type, spot.description);
     }
     return makeLabeledIcon(spot.name, "#FFA500", 12);
   }

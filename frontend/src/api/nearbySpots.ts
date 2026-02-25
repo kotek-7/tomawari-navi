@@ -2,6 +2,15 @@ import type { NearbySpotsRequest, NearbySpotsResponse } from "../types/nearby";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+function buildApiUrl(base: string, path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    return new URL(normalizedPath, base).toString();
+  }
+  const normalizedBase = base.startsWith("/") ? base : `/${base}`;
+  return `${normalizedBase.replace(/\/+$/, "")}${normalizedPath}`;
+}
+
 export async function nearbySpots(
   body: NearbySpotsRequest,
   timeoutMs = 10000,
@@ -11,7 +20,7 @@ export async function nearbySpots(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(new URL("/v1/spots:nearby", apiBase).toString(), {
+    const response = await fetch(buildApiUrl(apiBase, "/v1/spots:nearby"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
