@@ -3,10 +3,10 @@ import type { RouteData } from "./types/route";
 // 軽量なフロントエンド ⇄ バックエンド API クライアント
 // - フロントエンド担当者がバックエンド通信の挙動を理解・保守しやすいよう、
 //   関数ごとに詳細な日本語コメントを付けています。
-// - 環境変数 VITE_API_BASE_URL が設定されていればそれを使用し、未設定の場合は
-//   既定で http://localhost:8000 を使用します（開発時の frontend/vite と backend:8000 の組合せ想定）。
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+// - 環境変数 VITE_API_BASE_URL が設定されていればそれを使用します。
+// - 未設定時は、開発環境のみ localhost:8000、本番環境は /api を既定にします。
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? "http://localhost:8000" : "/api");
 
 export type RankingItem = {
   spot_name: string;
