@@ -71,3 +71,4 @@
 - `frontend/Dockerfile.railway` は `pnpm build` 後に `pnpm preview` で配信します。
 - Railway は実行時ポートを `PORT` で注入するため、Dockerfile 側で `${PORT:-...}` を使っています。
 - `proxy` は Caddy で `/api/*` を backend へ、その他を frontend へ転送します。
+- 観光データ `kyoto_kankouchi.xlsx` は `backend/data/` に配置しておくと、backend イメージへ同梱されます。
